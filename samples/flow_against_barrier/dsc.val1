@@ -1,0 +1,33 @@
+mod_barrier.D              
+flow_against_inclined_board
+____________________________________________DSC-MODEL_EVALUATION_FILE_dsc.val1
+iteration_cycles:             30000
+1st_evlt'd_cycle,_Mxwfld:     21
+Lst_evlt'd_cycle,_Mxwfld:     200
+iterations/cycle,_Mxwfld:     20
+1st_evlt'd_cycle,_Ht&Fld:     1
+Lst_evlt'd_cycle,_Ht&Fld:     30000
+iterations/cycle,_Ht&Fld:     2
+
+Maxwell_field_evaluation  
+evaluated_objects             number
+E-ports                       0         
+E-nodes                       0         
+H-ports                       0         
+H-nodes                       0         
+
+Thermal-fluid_evaluation   
+evaluated_objects             number
+heat_current:                 0
+face_temperatures:            0
+node_temperatures:            0
+nodal_velocities:             3
+
+>>-CELL_and_FACE_LABELS,_parameters,_etc->>
+
+11                0
+586               0
+586               1
+
+DSC model evaluation file dsc.val1 created:
+Sat 16 Apr 2022; 12:22:01

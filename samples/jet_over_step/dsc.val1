@@ -1,0 +1,33 @@
+mod_step.K                 
+flow_over_step             
+____________________________________________DSC-MODEL_EVALUATION_FILE_dsc.val1
+iteration_cycles:             10000
+1st_evlt'd_cycle,_Mxwfld:     1
+Lst_evlt'd_cycle,_Mxwfld:     1
+iterations/cycle,_Mxwfld:     1
+1st_evlt'd_cycle,_Ht&Fld:     1
+Lst_evlt'd_cycle,_Ht&Fld:     10000
+iterations/cycle,_Ht&Fld:     2
+
+Maxwell_field_evaluation  
+evaluated_objects             number
+E-ports                       0         
+E-nodes                       0         
+H-ports                       0         
+H-nodes                       0         
+
+Thermal-fluid_evaluation   
+evaluated_objects             number
+heat_current:                 0
+face_temperatures:            0
+node_temperatures:            0
+nodal_velocities:             3
+
+>>-CELL_and_FACE_LABELS,_parameters,_etc->>
+
+5                 0
+6282              0
+6282              1
+
+DSC model evaluation file dsc.val1 created:
+Tue 19 Apr 2022; 15:01:41

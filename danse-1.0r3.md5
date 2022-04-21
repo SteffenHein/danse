@@ -1,0 +1,25 @@
+[file: danse-1.0r3.md5]
+created: Sat Apr 16 23:57:04 2022
+-------------------------------------------------------------------------------
+MD5( CONFIG.H ) = 5bf9fc48cf31c9fc6b634e904a6c2f74
+MD5( INSTALL ) = a4135adca3d84411aa65481cba249a58
+MD5( LICENSE ) = 4b593c0f1f638ffa03466638f54fed81
+MD5( Makefile ) = 71e225b929134569f7b4539bd009910f
+MD5( README ) = 922215837a3eac7a2d1a38eb41a89a19
+MD5( SETUP ) = 42da11ae3776a44123ee6001442b78b1
+MD5( bin ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( cc-messages ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( doc ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( former ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( makefile.unx ) = 71e225b929134569f7b4539bd009910f
+MD5( math ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( mk.unx ) = b6925efbad55448a4b642ef69675b13e
+MD5( model.c ) = 74b3f169136a9b018e8a077f475c3f29
+MD5( models ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( objects ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( poster ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( samples ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( scripts ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( solver ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( tools ) = d41d8cd98f00b204e9800998ecf8427e
+MD5( work ) = d41d8cd98f00b204e9800998ecf8427e

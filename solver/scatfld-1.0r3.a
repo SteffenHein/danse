@@ -1,0 +1,874 @@
+/* [ file: scatfld-1.0r3.a ] */
+/*******************************************************************************
+*                                                                              *
+*   Function body scatfld(*)                                                   *
+*   [ DANSE - Discrete Approximation of the Navier Stokes Equations,           *
+*     release 1.0r3 ]                                                          *
+*                                                                              *
+*   DSC scattering algorithm based on non-orthogonal condensed node            *
+*   with tensor material parameters and gyrotropic structure.                  *
+*   [ cf. 'Finite Difference Time-Domain Approximation of Maxwell's            *
+*   Equations with Non-Orthogonal Condensed TLM Mesh', International           *
+*   Journal of Numerical Modelling, vol.7, 179-188 (1994) and 'TLM             *
+*   Numerical Solution of Bloch's Equations for Magnetized Gyrotropic          *
+*   Media', Applied Mathematical Modelling, vol.22, 221-229 (1997).]           *
+*                                                                              *
+*   (C) SHEIN; Bad Aibling, October 2007                   Steffen Hein        *
+*   [ Update: April 05, 2022 ]                          <contact@sfenx.de>     *
+*                                                                              *
+*******************************************************************************/
+/* macros: */
+/*----------------------------------------------------------------------------*/
+# define INC_UER(N) \
+{ \
+   uer[0] = ( inc->i[(N)][0] ) + ( inc->i[(N)][1] ) + \
+            ( inc->i[(N)][2] ) + ( inc->i[(N)][3] );  \
+   uer[1] = ( inc->i[(N)][4] ) + ( inc->i[(N)][5] ) + \
+            ( inc->i[(N)][6] ) + ( inc->i[(N)][7] );  \
+   uer[2] = ( inc->i[(N)][8] ) + ( inc->i[(N)][9] ) + \
+           ( inc->i[(N)][10] ) + ( inc->i[(N)][11] ); \
+}
+/*............................................................................*/
+# define INC_UEZ(N) \
+{ \
+   uer[0] = ( inc->r[(N)][0] ) + ( inc->r[(N)][1] ) + \
+            ( inc->r[(N)][2] ) + ( inc->r[(N)][3] );  \
+   uer[1] = ( inc->r[(N)][4] ) + ( inc->r[(N)][5] ) + \
+            ( inc->r[(N)][6] ) + ( inc->r[(N)][7] );  \
+   uer[2] = ( inc->r[(N)][8] ) + ( inc->r[(N)][9] ) + \
+           ( inc->r[(N)][10] ) + ( inc->r[(N)][11] ); \
+   uei[0] = ( inc->i[(N)][0] ) + ( inc->i[(N)][1] ) + \
+            ( inc->i[(N)][2] ) + ( inc->i[(N)][3] );  \
+   uei[1] = ( inc->i[(N)][4] ) + ( inc->i[(N)][5] ) + \
+            ( inc->i[(N)][6] ) + ( inc->i[(N)][7] );  \
+   uei[2] = ( inc->i[(N)][8] ) + ( inc->i[(N)][9] ) + \
+           ( inc->i[(N)][10] ) + ( inc->i[(N)][11] ); \
+}
+/*............................................................................*/
+# define INC_UHR(N) \
+{ \
+   uhr[0] =  ( inc->i[(N)][4] ) - ( inc->i[(N)][6] ) - \
+             ( inc->i[(N)][9] ) + ( inc->i[(N)][11] ); \
+   uhr[1] = -( inc->i[(N)][1] ) + ( inc->i[(N)][3] ) + \
+             ( inc->i[(N)][8] ) - ( inc->i[(N)][10] ); \
+   uhr[2] =  ( inc->i[(N)][0] ) - ( inc->i[(N)][2] ) - \
+             ( inc->i[(N)][5] ) + ( inc->i[(N)][7] );  \
+}
+/*............................................................................*/
+# define INC_UHZ(N) \
+{ \
+   uhr[0] =  ( inc->r[(N)][4] ) - ( inc->r[(N)][6] ) - \
+             ( inc->r[(N)][9] ) + ( inc->r[(N)][11] ); \
+   uhr[1] = -( inc->r[(N)][1] ) + ( inc->r[(N)][3] ) + \
+             ( inc->r[(N)][8] ) - ( inc->r[(N)][10] ); \
+   uhr[2] =  ( inc->r[(N)][0] ) - ( inc->r[(N)][2] ) - \
+             ( inc->r[(N)][5] ) + ( inc->r[(N)][7] );  \
+   uhi[0] =  ( inc->i[(N)][4] ) - ( inc->i[(N)][6] ) - \
+             ( inc->i[(N)][9] ) + ( inc->i[(N)][11] ); \
+   uhi[1] = -( inc->i[(N)][1] ) + ( inc->i[(N)][3] ) + \
+             ( inc->i[(N)][8] ) - ( inc->i[(N)][10] ); \
+   uhi[2] =  ( inc->i[(N)][0] ) - ( inc->i[(N)][2] ) - \
+             ( inc->i[(N)][5] ) + ( inc->i[(N)][7] );  \
+}
+/*............................................................................*/
+# define INC_GGE(N) \
+{ \
+   uer[3] = ( gfp->r[(N)][0] ); \
+   uer[4] = ( gfp->r[(N)][1] ); \
+   uer[5] = ( gfp->r[(N)][2] ); \
+}
+/*............................................................................*/
+# define INC_GGH(N) \
+{ \
+   uhr[3] = ( gfp->i[(N)][0] ); \
+   uhr[4] = ( gfp->i[(N)][1] ); \
+   uhr[5] = ( gfp->i[(N)][2] ); \
+}
+/*............................................................................*/
+# define REF_UER(N) \
+{ \
+   uer[0] += ( ref->r[(N)][0] ) + ( ref->r[(N)][1] ) + \
+             ( ref->r[(N)][2] ) + ( ref->r[(N)][3] );  \
+   uer[1] += ( ref->r[(N)][4] ) + ( ref->r[(N)][5] ) + \
+             ( ref->r[(N)][6] ) + ( ref->r[(N)][7] );  \
+   uer[2] += ( ref->r[(N)][8] ) + ( ref->r[(N)][9] ) + \
+            ( ref->r[(N)][10] ) + ( ref->r[(N)][11] ); \
+}
+/*............................................................................*/
+# define REF_UEZ(N) \
+{ \
+   uer[0] += ( ref->r[(N)][0] ) + ( ref->r[(N)][1] ) + \
+             ( ref->r[(N)][2] ) + ( ref->r[(N)][3] );  \
+   uer[1] += ( ref->r[(N)][4] ) + ( ref->r[(N)][5] ) + \
+             ( ref->r[(N)][6] ) + ( ref->r[(N)][7] );  \
+   uer[2] += ( ref->r[(N)][8] ) + ( ref->r[(N)][9] ) + \
+            ( ref->r[(N)][10] ) + ( ref->r[(N)][11] ); \
+   uei[0] += ( ref->i[(N)][0] ) + ( ref->i[(N)][1] ) + \
+             ( ref->i[(N)][2] ) + ( ref->i[(N)][3] );  \
+   uei[1] += ( ref->i[(N)][4] ) + ( ref->i[(N)][5] ) + \
+             ( ref->i[(N)][6] ) + ( ref->i[(N)][7] );  \
+   uei[2] += ( ref->i[(N)][8] ) + ( ref->i[(N)][9] ) + \
+            ( ref->i[(N)][10] ) + ( ref->i[(N)][11] ); \
+}
+/*............................................................................*/
+# define REF_UHR(N) \
+{ \
+   uhr[0] -=  ( ref->r[(N)][4] ) - ( ref->r[(N)][6] ) - \
+              ( ref->r[(N)][9] ) + ( ref->r[(N)][11] ); \
+   uhr[1] -= -( ref->r[(N)][1] ) + ( ref->r[(N)][3] ) + \
+              ( ref->r[(N)][8] ) - ( ref->r[(N)][10] ); \
+   uhr[2] -=  ( ref->r[(N)][0] ) - ( ref->r[(N)][2] ) - \
+              ( ref->r[(N)][5] ) + ( ref->r[(N)][7] );  \
+}
+/*............................................................................*/
+# define REF_UHZ(N) \
+{ \
+   uhr[0] -=  ( ref->r[(N)][4] ) - ( ref->r[(N)][6] ) - \
+              ( ref->r[(N)][9] ) + ( ref->r[(N)][11] ); \
+   uhr[1] -= -( ref->r[(N)][1] ) + ( ref->r[(N)][3] ) + \
+              ( ref->r[(N)][8] ) - ( ref->r[(N)][10] ); \
+   uhr[2] -=  ( ref->r[(N)][0] ) - ( ref->r[(N)][2] ) - \
+              ( ref->r[(N)][5] ) + ( ref->r[(N)][7] );  \
+   uhi[0] -=  ( ref->i[(N)][4] ) - ( ref->i[(N)][6] ) - \
+              ( ref->i[(N)][9] ) + ( ref->i[(N)][11] ); \
+   uhi[1] -= -( ref->i[(N)][1] ) + ( ref->i[(N)][3] ) + \
+              ( ref->i[(N)][8] ) - ( ref->i[(N)][10] ); \
+   uhi[2] -=  ( ref->i[(N)][0] ) - ( ref->i[(N)][2] ) - \
+              ( ref->i[(N)][5] ) + ( ref->i[(N)][7] );  \
+}
+/*............................................................................*/
+# define REF_GGE(N) \
+{ \
+   uer[3] += ( gfp->r[(N)][0] ); \
+   uer[4] += ( gfp->r[(N)][1] ); \
+   uer[5] += ( gfp->r[(N)][2] ); \
+}
+/*............................................................................*/
+# define REF_GGH(N) \
+{ \
+   uhr[3] -= ( gfp->r[(N)][0] ); \
+   uhr[4] -= ( gfp->r[(N)][1] ); \
+   uhr[5] -= ( gfp->r[(N)][2] ); \
+}
+/*............................................................................*/
+# define SCATTR_ER( ) \
+{ \
+   jj = null; do \
+   { \
+      ver[jj] = ZERO; \
+      kk = null; do \
+      { \
+         ver[jj] += (( spt->se[hh][jj][kk] ) * uer[kk] ); \
+      } while(( ++kk ) < SENTR ); \
+   } while(( ++jj ) < SENTR ); \
+}
+/*............................................................................*/
+# define SCATTR_EZ( ) \
+{ \
+   jj = null; do \
+   { \
+      ver[jj] = ZERO; \
+      vei[jj] = ZERO; \
+      kk = null; do \
+      { \
+         ll = DIMNS + kk; \
+         ver[jj] += (( spt->se[hh][jj][kk] ) * uer[kk] ); \
+         ver[jj] -= (( spt->se[hh][jj][ll] ) * uei[kk] ); \
+         vei[jj] += (( spt->se[hh][jj][kk] ) * uei[kk] ); \
+         vei[jj] += (( spt->se[hh][jj][ll] ) * uer[kk] ); \
+      } while(( ++kk ) < DIMNS ); \
+   } while(( ++jj ) < DIMNS ); \
+}
+/*............................................................................*/
+# define SCATTR_HR( ) \
+{ \
+   jj = null; do \
+   { \
+      vhr[jj] = ZERO; \
+      kk = null; do \
+      { \
+         vhr[jj] += (( spt->sh[hh][jj][kk] ) * uhr[kk] ); \
+      } while(( ++kk ) < SENTR ); \
+   } while(( ++jj ) < SENTR ); \
+}
+/*............................................................................*/
+# define SCATTR_HZ( ) \
+{ \
+   jj = null; do \
+   { \
+      vhr[jj] = ZERO; \
+      vhi[jj] = ZERO; \
+      kk = null; do \
+      { \
+         ll = DIMNS + kk; \
+         vhr[jj] += (( spt->sh[hh][jj][kk] ) * uhr[kk] ); \
+         vhr[jj] -= (( spt->sh[hh][jj][ll] ) * uhi[kk] ); \
+         vhi[jj] += (( spt->sh[hh][jj][kk] ) * uhi[kk] ); \
+         vhi[jj] += (( spt->sh[hh][jj][ll] ) * uhr[kk] ); \
+      } while(( ++kk ) < DIMNS ); \
+   } while(( ++jj ) < DIMNS ); \
+}
+/*============================================================================*/
+
+DSC_FIELDS *\
+scatfld( struct solverstat *state )
+{
+/* allusions: */
+/*     
+   extern struct topology top;
+   extern struct tlmsmx smx;
+   extern struct boundary bnd;
+*/
+/* declarations: */
+/*............................................................................*/
+/* register type. */
+
+   register long 
+      hh = null,
+      nn = null;
+
+   register signed char 
+      jj = null,
+      kk = null;
+
+   register double
+      uu = ZERO,
+      vv = ZERO;
+/*............................................................................*/
+# if DSC_DOMAIN != 1
+   register double
+      sct_quart = ZERO;
+
+   register signed char 
+      ll = null;
+# endif
+/*............................................................................*/
+# if DSC_DOMAIN != 2
+   register long 
+      ii = null,
+      mm = null,
+      ne = null,
+      nh = null;
+# endif
+/*............................................................................*/
+/* other types */
+
+   static double
+      uer[SENTR] = {ZERO},
+      uhr[SENTR] = {ZERO},
+      ver[HDIMS] = {ZERO},
+      vhr[HDIMS] = {ZERO};
+/*............................................................................*/
+# if DSC_DOMAIN == 0
+   static double
+      dec[DIMNS] = {ZERO},
+      gec[DIMNS] = {ZERO},
+      ecr[DIMNS] = {ZERO},
+      dmc[DIMNS] = {ZERO},
+      gmc[DIMNS] = {ZERO},
+      hcr[DIMNS] = {ZERO};
+# elif DSC_DOMAIN == 1
+   static double
+      dec[DIMNS] = {ZERO},
+      gec[DIMNS] = {ZERO},
+      ecr[DIMNS] = {ZERO},
+      dmc[DIMNS] = {ZERO},
+      gmc[DIMNS] = {ZERO},
+      hcr[DIMNS] = {ZERO};
+# endif
+/*............................................................................*/
+# if DSC_DOMAIN != 1
+   static signed char 
+      cjg = null;
+
+   static double
+      uei[SENTR] = {ZERO},
+      uhi[SENTR] = {ZERO},
+      vei[HDIMS] = {ZERO},
+      vhi[HDIMS] = {ZERO};
+# endif
+/*............................................................................*/
+# if DSC_DOMAIN != 2
+   static signed char 
+      cnt = null,
+      prd = null;
+# endif
+/*............................................................................*/
+/* structure pointers: */
+
+   static struct topology
+     *tpt = NULL;
+
+   static struct tlmsmx
+     *spt = NULL;
+
+   static struct boundary
+     *bpt = NULL;
+
+   static DSC_FIELDS
+     *inc = NULL,
+     *ref = NULL;
+/*............................................................................*/
+# if DSC_DOMAIN == 0
+   static DSC_FIELDS
+     *gfp = NULL;
+
+   static DSC_DEFLCT
+     *dfp = NULL;
+
+# elif DSC_DOMAIN == 1
+   static DSC_GGEFLD
+     *gfp = NULL;
+
+   static DSC_DEFLCT
+     *dfp = NULL;
+# endif
+/*----------------------------------------------------------------------------*/
+/* overtake solverstate: */
+
+   tpt = ( state->tpt );
+   spt = ( state->spt );
+   bpt = ( state->bpt );
+
+   inc = ( state->inc );
+   ref = ( state->out );
+/*............................................................................*/
+# if ( DSC_DOMAIN == 0 )||( DSC_DOMAIN == 1 )
+   gfp = ( state->gfp );
+   dfp = ( state->dfp );
+# endif
+/*............................................................................*/
+/* here starts the job: */
+   ( state->mxwnn )++;
+/*............................................................................*/
+   if (( state->dmn ) == 't' ) /* time domain process */
+   {
+/*............................................................................*/
+# if DSC_DOMAIN == 2
+      printf( "\n Error message from function %s :", __func__ );
+      printf( "\n\n Solver is compiled in frequency "
+         "domain mode 'DSC_DOMAIN = 2'" );
+      printf( "\n - but run in time domain mode 1 !!!" );
+      printf( "\n\n [ Change time/frequency domain macro DSC_DOMAIN "
+         "in SOLVER.CONF from 2 to" );
+      printf( "\n   1: time domain, or" );
+      printf( "\n   0: time & frequency domain." );
+      printf( "\n   Then re-compile and restart program.]\n " );
+
+      strncpy(( state->fcterr ), __func__, SHS_SIZE );
+      strncpy(( state->errmsg ), "domain_!!!_[solver_compiled_"
+         "in_mode_DSC_DOMAIN=2] ", LGS_SIZE );
+      return NULL;
+/*............................................................................*/
+# else /* DSC_DOMAIN == 0 or 1 */
+/*............................................................................*/
+      nn = ONE;     /* EM field [ mesh cell ] label */
+      ne = null;    /* gyroelectric currents label */
+      nh = null;    /* gyromagnetic currents label */
+
+      prd = ( null < ( bpt->p ));
+
+      cnt = null; do /* while cnt <= prd */
+      {
+         nn = ONE + cnt*( tpt->n );
+         mm = null; /* cell label                                             */
+         while(( mm++ ) < ( tpt->n ))
+         {
+            hh = ( spt->hh[mm] );
+/*............................................................................*/
+/*  scatter E field [ generalized Ampere's law ] */
+
+            switch ( spt->etyp[hh] )
+            { 
+              case 'd':              /* diagonal [E field] S-matrix */
+      
+               INC_UER(nn);          /* copy [E-] link voltages */
+               INC_GGE(nn);          /* copy [E-] stub voltages */
+
+               jj = null; do
+               {
+                  kk = jj+DIMNS;
+                  ver[jj] = ( spt->se[hh][jj][jj] ) * uer[jj] + uer[kk];
+                  ver[kk] = ( spt->se[hh][kk][jj] ) * uer[jj] + \
+                     ( spt->se[hh][kk][kk] ) * uer[kk];
+               } while(( ++jj ) < DIMNS );
+
+               break;
+
+              case 's':             /* non-diagonal sym. [E field] S-matrix */
+                                    /* [ non-orthogonal DSC mesh cell, e.g. */
+               INC_UER(nn);         /*   or tensor permittivity,            */
+               INC_GGE(nn);         /*    - electric conductivity ]         */
+
+               SCATTR_ER( );    
+
+               break;                  
+        
+              case 'a':             /* asymmetric [E field] S-matrix */
+
+               INC_UER(nn);       
+               INC_GGE(nn);      
+          
+               SCATTR_ER( );
+
+               break; 
+
+/* gyroelectric node: */
+
+              case 'g':
+
+/* 'truncated' scattering: */
+
+               INC_UER(nn); 
+               INC_GGE(nn);
+
+               SCATTR_ER( );
+
+/* deflection: */
+
+               ii = ( spt->me[hh] );
+
+               jj = null; do
+               {
+                  ver[jj] += ( dfp->de[ne][jj] );
+               } while(( ++jj ) < DIMNS );
+
+/* update nodal electric field [ ecr := V*(B^-1)*u^n ]: */
+
+               jj = null; do
+               {
+                  ecr[jj] = ZERO;
+                  kk = null; do
+                  {
+                     ecr[jj] += (( spt->sge[ii][jj][kk] )
+                               * ( uer[kk] + ver[kk] ));
+                  } while(( ++kk ) < DIMNS );
+               } while(( ++jj ) < DIMNS );
+
+/* update deflection and gyroelectric currents: */
+
+# if SCT_GENRM == 1
+               vv = ZERO;
+# endif
+               jj = null; do
+               {
+                  dec[jj] = ZERO;
+                  gec[jj] = ZERO;
+
+                  kk = null; do
+                  {
+                     dec[jj] += (( spt->se[hh][jj+DIMNS][kk+DIMNS] )*\
+                                 ( dfp->de[ne][kk] ));
+                           uu = ecr[kk] + dfp->ge[ne][kk];
+                     dec[jj] += (( spt->de[ii][jj][kk] ) * uu );
+                     gec[jj] += (( spt->eue[ii][jj][kk] ) * uu ); 
+                  } while(( ++kk ) < DIMNS );
+
+# if SCT_GENRM == 1
+                  vv += ( gec[jj] * gec[jj] );
+# endif
+               } while(( ++jj ) < DIMNS ); 
+
+# if SCT_GENRM == 1
+               vv = sqrt( vv );
+
+               if ( dfp->emx < vv ) 
+                  dfp->emx = vv;
+# endif
+               jj = null; do
+               {
+                  ( dfp->de[ne][jj] ) = dec[jj];
+                  ( dfp->ge[ne][jj] ) = gec[jj];
+               } while(( ++jj ) < DIMNS );
+
+               ne++;
+
+               break;
+
+ 	      default: /* default: trivial e_node */
+                       /* [ no scattering ] */
+               goto next_cll1;
+
+            }; /* end switch( spt->etyp... ) */
+          
+            ver[6] = inc->i[nn][0]  - inc->i[nn][1] + \
+                     inc->i[nn][2]  - inc->i[nn][3];
+            ver[7] = inc->i[nn][4]  - inc->i[nn][5] + \
+                     inc->i[nn][6]  - inc->i[nn][7];
+            ver[8] = inc->i[nn][8]  - inc->i[nn][9] + \
+                     inc->i[nn][10] - inc->i[nn][11]; 
+
+            gfp->r[nn][0] = SCT_ONE_ * ver[3]; /* E field gauge voltages */
+            gfp->r[nn][1] = SCT_ONE_ * ver[4];
+            gfp->r[nn][2] = SCT_ONE_ * ver[5]; 
+/*............................................................................*/
+/* scatter h_modes [ Faraday's law ]: */
+
+            switch( spt->mtyp[hh] )  
+            {
+              case 'd':              /* diagonal [H field] S-matrix */
+
+               INC_UHR(nn);          /* copy [H-] link voltages */
+               INC_GGH(nn);          /* copy [H-] stub voltages */
+
+               jj = null; do 
+               {
+                  kk = jj+DIMNS ;
+                  vhr[jj] = ( spt->sh[hh][jj][jj] ) * uhr[jj] + uhr[kk];
+                  vhr[kk] = ( spt->sh[hh][kk][jj] ) * uhr[jj] + \
+                            ( spt->sh[hh][kk][kk] ) * uhr[kk];
+               } while(( ++jj ) < DIMNS );
+
+               break; 
+
+              case 's':             /* non-diagonal sym. [H field] S-matrix */
+                                    /* [ non-orthogonal DSC mesh cell, e.g. */
+               INC_UHR(nn);         /*   or tensor permeability,            */
+               INC_GGH(nn);         /*    - magnetic conductivity ]         */
+
+               SCATTR_HR( );   
+                                
+               break;                    
+                                        
+              case 'a':             /* asymmetric [H field] S-matrix */
+
+               INC_UHR(nn);
+               INC_GGH(nn);
+
+               SCATTR_HR( );
+
+               break;
+
+/* gyromagnetic node: */
+
+              case 'g':
+
+/* 'truncated' scattering: */ 
+
+               INC_UHR(nn);
+               INC_GGH(nn);
+
+               SCATTR_HR( );
+
+/* deflection: */
+
+               ii = ( spt->mm[hh] );
+                 
+               jj = null; do
+               {
+                  vhr[jj] += ( dfp->dm[nh][jj] );
+               } while(( ++jj ) < DIMNS );
+
+/* update nodal magnetic field [ hcr := MY_VAC*V*(B^-1)*i^n ]: */
+
+               jj = null; do
+               { 
+                  hcr[jj] = ZERO;
+                  kk = null; do
+                  {
+                     hcr[jj] += ( spt->sgm[ii][jj][kk] * ( uhr[kk]-vhr[kk] ));
+                  } while(( ++kk ) < DIMNS );
+               } while(( ++jj ) < DIMNS );         
+
+/* update deflection and gyromagnetic currents: */ 
+
+# if SCT_GMNRM == 1
+               vv = ZERO;
+# endif
+               jj = null; do                   
+               {
+                  dmc[jj] = ZERO;
+                  gmc[jj] = ZERO;
+                  kk = null; do
+                  {                                      
+                     dmc[jj] += (( spt->sh[hh][jj+DIMNS][kk+DIMNS] )*\
+                                 ( dfp->dm[nh][kk] ));
+                     dmc[jj] += (( spt->dm[ii][jj][kk] )*\
+                                 (( hcr[kk] + dfp->gm[nh][kk] )));
+                     gmc[jj] += 
+                        (( spt->eum[ii][jj][kk] - ( double )( jj == kk ))*\
+                           hcr[kk] );
+                     gmc[jj] += (( spt->eum[ii][jj][kk] )*\
+                                 ( dfp->gm[nh][kk] ));
+                  } while(( ++kk ) < DIMNS );
+
+# if SCT_GMNRM == 1
+                  vv += ( gmc[jj] * gmc[jj] );
+# endif
+               } while(( ++jj ) < DIMNS );
+
+# if SCT_GMNRM == 1
+               vv = sqrt( vv );
+
+               if ( dfp->mmx < vv ) 
+                  dfp->mmx = vv;
+# endif
+               jj=null ; do
+               {
+                  ( dfp->dm[nh][jj] ) = dmc[jj];
+                  ( dfp->gm[nh][jj] ) = gmc[jj];
+               } while(( ++jj ) < DIMNS );
+
+               nh++;
+
+               break; 
+
+	      default: /* default: trivial h_node */
+                       /* [ no scattering ] */
+               goto next_cll1;
+
+            }; /* end switch( spt->mtyp... ) */
+
+            vhr[6] = - inc->i[nn][4] + inc->i[nn][6] \
+                     - inc->i[nn][9] + inc->i[nn][11];
+            vhr[7] = - inc->i[nn][1] + inc->i[nn][3] \
+                     - inc->i[nn][8] + inc->i[nn][10];
+            vhr[8] = - inc->i[nn][0] + inc->i[nn][2] \
+                     - inc->i[nn][5] + inc->i[nn][7];
+
+            gfp->i[nn][0] = SCT_ONE_ * vhr[3]; /* H field gauge voltages */
+            gfp->i[nn][1] = SCT_ONE_ * vhr[4];
+            gfp->i[nn][2] = SCT_ONE_ * vhr[5];
+
+/*----------------- overwrite scattered voltages -----------------------------*/
+
+            ref->r[nn][0]  = SCT_QUART * ( ver[0] - ver[6] + vhr[2] - vhr[8] );
+            ref->r[nn][1]  = SCT_QUART * ( ver[0] + ver[6] - vhr[1] - vhr[7] );
+            ref->r[nn][2]  = SCT_QUART * ( ver[0] - ver[6] - vhr[2] + vhr[8] );
+            ref->r[nn][3]  = SCT_QUART * ( ver[0] + ver[6] + vhr[1] + vhr[7] );
+            ref->r[nn][4]  = SCT_QUART * ( ver[1] - ver[7] + vhr[0] - vhr[6] );
+            ref->r[nn][5]  = SCT_QUART * ( ver[1] + ver[7] - vhr[2] - vhr[8] );
+            ref->r[nn][6]  = SCT_QUART * ( ver[1] - ver[7] - vhr[0] + vhr[6] );
+            ref->r[nn][7]  = SCT_QUART * ( ver[1] + ver[7] + vhr[2] + vhr[8] );
+            ref->r[nn][8]  = SCT_QUART * ( ver[2] - ver[8] + vhr[1] - vhr[7] );
+            ref->r[nn][9]  = SCT_QUART * ( ver[2] + ver[8] - vhr[0] - vhr[6] );
+            ref->r[nn][10] = SCT_QUART * ( ver[2] - ver[8] - vhr[1] + vhr[7] );
+            ref->r[nn][11] = SCT_QUART * ( ver[2] + ver[8] + vhr[0] + vhr[6] );
+
+           next_cll1:
+            nn++;
+         }; /* end while(( mm++ ) < ( tpt->n )) */
+      } while(( ++cnt ) <= prd ); 
+
+      return ref;
+/*............................................................................*/
+# endif /* DSC_DOMAIN == 0, 1 */
+   }
+   else /* if ( state->dmn != 't' ): frequency domain */
+   {
+/*............................................................................*/
+# if DSC_DOMAIN == 1
+      printf( "\n Error message from function %s :", __func__ );
+      printf( "\n\n Solver is compiled in time " 
+         "domain mode 'DSC_DOMAIN = 1'" );
+      printf( "\n - but run in frequency domain mode 2 !!!" );
+      printf( "\n\n [ Change time/frequency domain macro DSC_DOMAIN "
+         "in SOLVER.CONF from 1 to" );
+      printf( "\n   0: time & frequency domain, or" );
+      printf( "\n   2: frequency domain." );
+      printf( "\n   Then re-compile and restart program.]\n " ); 
+
+      strncpy(( state->fcterr ), __func__, SHS_SIZE );
+      strncpy(( state->errmsg ), "domain_!!!_[solver_compiled_"
+         "in_mode_DSC_DOMAIN=1] ", LGS_SIZE );
+      return null;
+/*............................................................................*/
+# else /* the remaining cases: DSC_DOMAIN == 0 or 2 */
+/*............................................................................*/
+      cjg = ONE - 2*SCT_CONJGT;
+
+      sct_quart = ( double ) cjg * SCT_QUART;
+
+      nn = null;
+      while (( nn++ ) < ( tpt->n ))
+      {
+         hh = ( spt->hh[nn] );
+/*............................................................................*/
+/* scatter E field [ generalized Ampere's law ] */
+
+         switch ( spt->etyp[hh] )
+         {
+           case 'd':
+
+            INC_UEZ(nn);
+
+            jj = null; do
+            {
+               kk=jj+DIMNS ;
+               ver[jj] = ( spt->se[hh][jj][jj] ) * uer[jj] - \
+                         ( spt->se[hh][jj][kk] ) * uei[jj];
+               vei[jj] = ( spt->se[hh][jj][jj] ) * uei[jj] + \
+                         ( spt->se[hh][jj][kk] ) * uer[jj];
+            } while(( ++jj ) < DIMNS );
+
+            break;
+
+           case 's':
+
+            INC_UEZ(nn);
+  
+            SCATTR_EZ( );
+
+            break;
+
+           case 'a':
+
+            INC_UEZ(nn);
+
+            SCATTR_EZ( );
+
+            break;
+
+ 	   default: /* default: trivial e_node */
+                    /* [ no scattering ] */
+            goto next_cll2;
+
+         }; /* end switch( spt->etyp... ) */
+
+         uu = ( inc->r[nn][0] ) - ( inc->r[nn][1] ) + \
+              ( inc->r[nn][2] ) - ( inc->r[nn][3] );
+         vv = ( inc->i[nn][0] ) - ( inc->i[nn][1] ) + \
+              ( inc->i[nn][2] ) - ( inc->i[nn][3] );
+         ver[6] = ( spt->shr )*uu + ( spt->shi )*vv;
+         vei[6] = ( spt->shr )*vv - ( spt->shi )*uu;
+
+         uu = ( inc->r[nn][4] ) - ( inc->r[nn][5] ) + \
+              ( inc->r[nn][6] ) - ( inc->r[nn][7] );
+         vv = ( inc->i[nn][4] ) - ( inc->i[nn][5] ) + \
+              ( inc->i[nn][6] ) - ( inc->i[nn][7] );
+         ver[7] = ( spt->shr )*uu + ( spt->shi )*vv;
+         vei[7] = ( spt->shr )*vv - ( spt->shi )*uu;
+
+         uu = ( inc->r[nn][8] ) - ( inc->r[nn][9] ) + \
+              ( inc->r[nn][10] ) - ( inc->r[nn][11] );
+         vv = ( inc->i[nn][8] ) - ( inc->i[nn][9] ) + \
+              ( inc->i[nn][10] ) - ( inc->i[nn][11] );
+         ver[8] = ( spt->shr )*uu + ( spt->shi )*vv;
+         vei[8] = ( spt->shr )*vv - ( spt->shi )*uu;
+/*............................................................................*/
+/* scatter H field [ Faraday's law ]: */
+
+         switch( spt->mtyp[hh] )
+         {
+           case 'd': /* diagonal [H field] S-matrix */
+
+            INC_UHZ(nn);
+
+            jj = null; do
+            {
+               kk = jj+DIMNS ;
+               vhr[jj] = ( spt->sh[hh][jj][jj] ) * uhr[jj] - \
+                         ( spt->sh[hh][jj][kk] ) * uhi[jj];
+               vhi[jj] = ( spt->sh[hh][jj][jj] ) * uhi[jj] + \
+                         ( spt->sh[hh][jj][kk] ) * uhr[jj];
+            } while(( ++jj ) < DIMNS );
+
+            break;
+
+           case 's':
+            
+            INC_UHZ(nn);
+
+            SCATTR_HZ( );
+
+            break;
+
+           case 'a':
+           
+            INC_UHZ(nn);
+
+            SCATTR_HZ( );
+
+            break;
+
+ 	   default: /* default: trivial h_node */
+                    /* [ no scattering ] */
+            goto next_cll2;
+
+         }; /* end switch( spt->mtyp... ) */
+
+         uu = - ( inc->r[nn][4] ) + ( inc->r[nn][6] ) - \
+                ( inc->r[nn][9] ) + ( inc->r[nn][11] );
+         vv = - ( inc->i[nn][4] ) + ( inc->i[nn][6] ) - \
+                ( inc->i[nn][9] ) + ( inc->i[nn][11] );
+         vhr[6] = ( spt->shr )*uu + ( spt->shi )*vv;
+         vhi[6] = ( spt->shr )*vv - ( spt->shi )*uu;
+
+         uu = - ( inc->r[nn][1] ) + ( inc->r[nn][3] ) - \
+                ( inc->r[nn][8] ) + ( inc->r[nn][10] );
+         vv = - ( inc->i[nn][1] ) + ( inc->i[nn][3] ) - \
+                ( inc->i[nn][8] ) + ( inc->i[nn][10] );
+         vhr[7] = ( spt->shr )*uu + ( spt->shi )*vv;
+         vhi[7] = ( spt->shr )*vv - ( spt->shi )*uu;
+
+         uu = - ( inc->r[nn][0] ) + ( inc->r[nn][2] ) - \
+                ( inc->r[nn][5] ) + ( inc->r[nn][7] );
+         vv = - ( inc->i[nn][0] ) + ( inc->i[nn][2] ) - \
+                ( inc->i[nn][5] ) + ( inc->i[nn][7] );
+         vhr[8] = ( spt->shr )*uu + ( spt->shi )*vv;
+         vhi[8] = ( spt->shr )*vv - ( spt->shi )*uu;
+
+/*----------------- overwrite scattered voltages -----------------------------*/
+
+         ref->r[nn][0]  = SCT_QUART * ( ver[0] - ver[6] + vhr[2] - vhr[8] );
+         ref->r[nn][1]  = SCT_QUART * ( ver[0] + ver[6] - vhr[1] - vhr[7] );
+         ref->r[nn][2]  = SCT_QUART * ( ver[0] - ver[6] - vhr[2] + vhr[8] );
+         ref->r[nn][3]  = SCT_QUART * ( ver[0] + ver[6] + vhr[1] + vhr[7] );
+         ref->r[nn][4]  = SCT_QUART * ( ver[1] - ver[7] + vhr[0] - vhr[6] );
+         ref->r[nn][5]  = SCT_QUART * ( ver[1] + ver[7] - vhr[2] - vhr[8] );
+         ref->r[nn][6]  = SCT_QUART * ( ver[1] - ver[7] - vhr[0] + vhr[6] );
+         ref->r[nn][7]  = SCT_QUART * ( ver[1] + ver[7] + vhr[2] + vhr[8] );
+         ref->r[nn][8]  = SCT_QUART * ( ver[2] - ver[8] + vhr[1] - vhr[7] );
+         ref->r[nn][9]  = SCT_QUART * ( ver[2] + ver[8] - vhr[0] - vhr[6] );
+         ref->r[nn][10] = SCT_QUART * ( ver[2] - ver[8] - vhr[1] + vhr[7] );
+         ref->r[nn][11] = SCT_QUART * ( ver[2] + ver[8] + vhr[0] + vhr[6] );
+
+         ref->i[nn][0]  = sct_quart * ( vei[0] - vei[6] + vhi[2] - vhi[8] );
+         ref->i[nn][1]  = sct_quart * ( vei[0] + vei[6] - vhi[1] - vhi[7] );
+         ref->i[nn][2]  = sct_quart * ( vei[0] - vei[6] - vhi[2] + vhi[8] );
+         ref->i[nn][3]  = sct_quart * ( vei[0] + vei[6] + vhi[1] + vhi[7] );
+         ref->i[nn][4]  = sct_quart * ( vei[1] - vei[7] + vhi[0] - vhi[6] );
+         ref->i[nn][5]  = sct_quart * ( vei[1] + vei[7] - vhi[2] - vhi[8] );
+         ref->i[nn][6]  = sct_quart * ( vei[1] - vei[7] - vhi[0] + vhi[6] );
+         ref->i[nn][7]  = sct_quart * ( vei[1] + vei[7] + vhi[2] + vhi[8] );
+         ref->i[nn][8]  = sct_quart * ( vei[2] - vei[8] + vhi[1] - vhi[7] );
+         ref->i[nn][9]  = sct_quart * ( vei[2] + vei[8] - vhi[0] - vhi[6] );
+         ref->i[nn][10] = sct_quart * ( vei[2] - vei[8] - vhi[1] + vhi[7] );
+         ref->i[nn][11] = sct_quart * ( vei[2] + vei[8] + vhi[0] + vhi[6] );
+
+        next_cll2:; 
+      }; /* end while (( nn++ ) < ( tpt->n )) */
+
+      return ref;
+/*............................................................................*/
+# endif /* DSC_DOMAIN != 1 */
+   }; /* end if( state->dmn != 't' ) */
+}
+/*============================================================================*/
+# undef INC_UER
+# undef INC_UEZ
+# undef INC_UHR
+# undef INC_UHZ
+# undef INC_GGE
+# undef INC_GGH
+/*----------------------------------------------------------------------------*/
+# undef REF_UER
+# undef REF_UEZ
+# undef REF_UHR
+# undef REF_UHZ
+# undef REF_GGE
+# undef REF_GGH
+/*----------------------------------------------------------------------------*/
+# undef SCATTR_ER
+# undef SCATTR_EZ
+# undef SCATTR_HR
+# undef SCATTR_HZ
+# undef SCT_ERFL
+# undef SCT_HRFL
+# undef SCT_GENRM
+# undef SCT_GENRM
+# undef SCT_CONJGT
+# undef SCT_QUART
+# undef SCT_TRIVIAL
+# undef SCT_ONE_
+/************************ end of file scatfld-1.0r3.a *************************/

@@ -1,0 +1,93 @@
+PARAMETERS-1
+mod_ccoax.G
+coaxial_line__
+FREQUENCY_DOMAIN
+
+32  Parameters
+INTERNATIONAL_UNITS_[if_not_otherwise_specified]
+-------------------------------------------------------------------------------
+s001=frequency________________________________________[Hz]:  1.000000000000e+08
+s002=outer_diameter,_coaxial_line_________________________:  2.300000000000e-01
+s003=inner_diameter,_coaxial_line_________________________:  9.990000000000e-02
+s004=wall_thickness,_mantle_______________________________:  5.000000000000e-03
+s005=wall_thickness,_inner_tube___________________________:  2.000000000000e-03
+s006=length,_source_line__________________________________:  9.200000000000e-01
+s007=lengths,_buffer_and_termination______________________:  1.150000000000e-01
+s008=length,_cooled_section_______________________________:  2.000000000000e-02
+s009=electric_conductivity,_waveguide________________[S/m]:  2.865000000000e+07
+s010=equivalent_square_resistance________[Ohms;_dependent]:  3.712081948456e-03
+s011=penetration_depth______________________[m;_dependent]:  9.402813420141e-06
+s012=heat_conductivity,_mantle___________________[W/(K*m)]:  3.930000000000e-02
+s013=heat_capacity,_mantle_____________________[J/(K*m^3)]:  3.510000000000e+02
+s014=cooling_temperature________________________[inactive]:  4.000000000000e+01
+s015=environment-surface_heat_conductivity_____[W/(K*m^2)]:  4.069000000000e+00
+s016=environment_temperature____________________[inactive]:  2.000000000000e+01
+s017=equiv._CW_power_input_________________________[Watts]:  1.606200000000e+05
+s018=excitation_gauge_________________[change_with_care_!]:  1.252860000000e+02
+s019=cooled_outer_surface_________________[m^2;_dependent]:  1.507964473723e-02
+s020=initial_mean_temperature,_gas______________[inactive]:  0.000000000000e+00
+s021=mean_density,_gas____________________________[Kg/m^3]:  9.998000000000e-01
+s022=thermal_expansion_coefficient,_gas______________[1/K]:  2.838000000000e-03
+s023=adiabatic_compression_coefficient,_gas_________[1/Pa]:  1.000000000000e-05
+s024=heat_conductivity,_gas______________________[W/(m*K)]:  2.990000000000e-02
+s025=heat_capacity,_gas_________________________[J/(Kg*K)]:  1.007200000000e+03
+s026=dynamic_viscosity,_gas_____________________[Kg/(m*s)]:  2.100000000000e-05
+s027=gravitational_acceleration___________[m/sec^2;_fixed]:  9.810000000000e+00
+s028=dissipation_time________________________________[sec]:  0.000000000000e+00
+s029=characteristic_length_____________________________[m]:  2.300000000000e-01
+s030=start_fluid_dynamic_computations_with_that_delay[sec]:  0.000000000000e+00
+s031=coarsening_period_[LES_filter]__________________[sec]:  2.000000000000e-02
+s032=PROPOSED_heat&fluid_time_step_[s]___[later_requested]:  2.500000000000e-03
+
+waveguide_type____________________________________________:  coaxial
+
+[ operation parameters at f = 1.0000000000000001e-01 GHz
+  free_wavelength.............[m]: 2.997924580147872e+00
+  waveguide_wavelength........[m]: 2.997924580147872e+00
+  TEmn_mode_line_impedance__[Ohm]: 3.767303134695850e+02
+  phase_velocity............[m/s]: 2.997924580147872e+08
+  group_velocity............[m/s]: 2.997924580147872e+08 ]
+
+critical_frequency____________________________________[Hz]:  5.785201769594e+08
+
+================================================================================
+
+DIVISIONS-1
+mod_ccoax.G
+coaxial_line__
+
+6   |divisions,_identifiers,_operation_marks,_etc.
+---------------------------------------------------------------
+n001=ab_divisions,_blocks__1,5____________________________:   6
+n002=bc_divisions,_block___1______________________________:  12
+n003=ab_divisions,_block___3______________________________:  14
+n004=bc_divisions,_block___6______________________________:   1
+n005=sum,_inner_divisions______________________[dependent]:  26
+n006=sum,_outer__divisions_____________________[dependent]:  74
+
+4   |vertical_[z]domains
+---------------------------------------------------------------
+m001=vertical_divisions,_domain__null_____________________:  20
+m002=vertical_divisions,_domain__1________________________:  10
+m003=vertical_divisions,_domain__2________________________:   1
+m004=vertical_divisions,_domain__3________________________:  10
+
+================================================================================
+
+OPERATIONS-1
+mod_ccoax.G
+coaxial_line__
+
+7   |operations_[computation_modes]
+---------------------------------------------------------------
+c001|reference_line/_waveguide_______________________[0/1]:   1
+c002|time/_frequency_domain__________________________[0/1]:   1
+c003|disable/_enable_internal_convection_____________[0,1]:   1
+c004|apply_skin_effect_heat_sources_to_metal/_gas____[0,1]:   1
+c005|apply_sources_to_inner/_outer/_all_conductors_[0/1/2]:   0
+c006|no_slip/free_slip_boundary_cds_at_conductors____[0/1]:   0
+c007|no_slip/free_slip/_outflow_bd_conds,_axial____[0/1/2]:   1
+
+DSC model parameter input file dsc.par1 created:
+Tue Apr 12 12:10:52 2022
+ÿ

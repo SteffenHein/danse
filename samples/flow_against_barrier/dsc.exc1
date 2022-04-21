@@ -1,0 +1,27 @@
+mod_barrier.D              
+flow_against_inclined_board
+____________________________________________DSC-MODEL_EXCITATION_FILE_dsc.exc1
+Maxwell_field_excitation   
+FREQUENCY_DOMAIN
+STEADY_STATE_______        
+parameters:                
+2
++1.0000000000000000e+03
+excited_objects               number
+E-ports                       0
+H-ports                       0
+
+Thermal-fluid_excitation   
+TIME_DOMAIN                
+PASSIVE____________        
+parameters:                
+excited_objects               number
+heat_currents:                0
+face_temperatures:            0
+node_temperatures:            0
+
+>>-CELL_and_FACE_LABELS,_parameters,_etc->>
+
+
+DSC model excitation file dsc.exc1 created:
+Sat 16 Apr 2022; 12:22:00

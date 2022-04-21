@@ -1,0 +1,91 @@
+/* [ file: pstprc.dummy ] */
+# define DO_PSTPRC "pstprc(*)"
+/*******************************************************************************
+*                                                                              *
+*   ANSI C function pstprc(*), DANSE release 1.0.                              *
+*   Dummy postprocessing function prototype                                    *
+*                                                                              *
+*   (C) SHEIN; Munich, April 2007                             Steffen Hein     *
+*   [ Update: March 30, 2022 ]                             <contact@sfenx.de>  *
+*                                                                              *
+*******************************************************************************/
+
+/*----------------------------------------------------------------------------*/
+/* 'my_terminal' configuration: */
+
+# if USE_TERMCAP == 1
+   # include <termcap.h>     /* terminal type header */
+   static char *term;        /* terminal type string */ 
+
+   # define CLSCREEN {\
+     printf( "%s", tgetstr( "cl", null )); \
+   }
+
+   # define PRBLDCLR(a) {\
+     printf( "%s%s", tgetstr( "md", null ), (a)); /* bold clear output */ \
+   }
+
+   # define PRINVERS(a) {\
+     printf( "%s%s", tgetstr( "mr", null ), (a)); /* inverse */ \
+   }
+
+   # define PRNORMAL(a) {\
+     printf( "%s%s", tgetstr( "me", null ), (a)); /* back to normal output */ \
+   }
+# else
+   # define CLSCREEN { ;\
+   }
+
+   # define PRBLDCLR(a) {\
+     printf( "%s", (a));\
+   }
+
+   # define PRINVERS(a) {\
+     printf( "%s", (a));\
+   }
+
+   # define PRNORMAL(a) {\
+     printf( "%s", (a));\
+   }
+# endif
+/*============================================================================*/
+
+POSTSTATE *\
+pstprc( POSTSTATE *stp )
+{
+/* declarations: */
+
+   static POSTSTATE
+     *state;
+
+   static short
+      ind = null;
+
+/*----------------------------------------------------------------------------*/
+# if USE_TERMCAP == 1
+/* get the terminal type: */
+
+   term = ( char *) getenv( "TERM" ); /* get the terminal */
+
+   ind = tgetent( null, term );
+
+   if( ONE != ind )
+   {
+      fprintf( stderr, "Error on getting the termcap info\n " ); 
+      exit( EXIT_FAILURE );
+   };
+# endif
+/*............................................................................*/
+   state = stp;
+/*............................................................................*/
+   printf( "\n ======================================="
+              "=======================================\n" );
+   PRBLDCLR( "\r" );
+   printf( " There is no postprocessing function charged\t\t\t\t PPRCSS\r" );
+   PRNORMAL( "" );
+
+   ( state-> rtn ) = null;
+   return state;
+}
+/*============================================================================*/
+/************************ end of function pstprc(*) ***************************/

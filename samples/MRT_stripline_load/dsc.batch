@@ -1,0 +1,9 @@
+DSC_batchfile
+retain_files
+number_of_jobs:   1
+
+job  dsc.top[_] dsc.smx[_] dsc.bnd[_] dsc.exc[_] dsc.val[_] state CPU_time/err
+  1          1          1          1          1          1     -- 000h:09m:55s
+
+DSC batch jobs 'dsc.batch' terminated:
+Tue Apr 12 16:01:14 2022

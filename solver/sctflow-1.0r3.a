@@ -1,0 +1,1832 @@
+/* [ file: sctflow-1.0r3.a ] */
+/*******************************************************************************
+*                                                                              *
+*   Function body sctflow(*)                                                   *
+*   [ DANSE - Discrete Approximation of the Navier Stokes Equations,           *
+*     release 1.0r3 ]                                                          *
+*                                                                              *
+*   DSC nodal fluid flow updating function                                     *
+*   [ Stable version, diffusive temperature updates in function scathcr(*) ]   *
+*                                                                              *
+*   (C) SHEIN; Bad Aibling, October 2007                   Steffen Hein        *
+*   [ Update: April 05, 2022 ]                          <contact@sfenx.de>     *
+*                                                                              *
+*******************************************************************************/
+/* Macro defaults: */
+/*............................................................................*/
+# ifndef SCT_DSSPFLW
+/* No damping: */
+   # define SCT_DSSPFLW 0
+# endif
+/*............................................................................*/
+# ifndef SCT_TMDYNMC
+/* Mean temperature determination mode: */
+   # define SCT_TMDYNMC 3
+# endif
+/*............................................................................*/
+# ifndef SCT_ADBCMPR
+/* Adiabatic compression disabled: */
+   # define SCT_ADBCMPR 1
+# endif
+/*............................................................................*/
+# ifndef SCT_BNDCLIP
+/* Flow clipping enabled: */
+   # define SCT_BNDCLIP 1
+# endif
+/*............................................................................*/
+# ifndef SCT_SMTHTMP
+/* No smooth temperature updates: */
+   # define SCT_SMTHTMP ( 1.000e+00 )
+# endif
+/*............................................................................*/
+# ifndef SCT_SMTHFLW
+/* No smooth flow updates: */
+   # define SCT_SMTHFLW ( 1.000e+00 )
+# endif
+/*............................................................................*/
+# if CMPRSSBL != 0
+/*............................................................................*/
+# ifndef SCT_SMTHDNS
+/* smooth density updates: 0 <= SCT_SMTHDNS <= 1. */
+/* [ 0 <- incompressible approximation; 1: same as undefined ( no smothing )] */
+/* # define SCT_SMTHDNS ( 1.000e+00 ) */
+   # define SCT_SMTHDNS ( 6.667e-03 ) 
+# endif
+/*............................................................................*/
+# ifndef SCT_MASSCRR
+/* Enable mass correction: */
+   # define SCT_MASSCRR 0
+# endif /* not defined SCT_MASSCRR */
+/*............................................................................*/
+# endif /* CMPRSSBL != 0 */
+/*============================================================================*/
+
+DSC_HCRRTS *\
+sctflow( struct solverstat *state )
+{
+/*----------------------------------------------------------------------------*/
+/* allusions: */
+/*     
+   extern struct topology top;
+   extern struct hcrsmx hcs;
+   extern struct boundary bnd;
+*/
+/* declarations: */
+/*............................................................................*/
+/* structure types */
+
+   static struct topology
+     *tpt = NULL;
+
+   static struct hcrsmx
+     *hsp = NULL;
+
+   static DSC_HCRRTS
+     *hci = NULL,
+     *hre = NULL;
+
+   static CLUSTER
+     *tmp = NULL,
+     *prs = NULL,
+     *vel[THREE] = {NULL};
+/*............................................................................*/
+# if CMPRSSBL != 0
+   static CLUSTER
+     *dns = NULL,
+     *flw[THREE] = {NULL};
+/*............................................................................*/
+# if SCT_MASSCRR != 0
+   static double
+      mass[NFCNN+ONE] = {ZERO};
+# endif /* SCT_MASSCRR != 0 */
+/*............................................................................*/
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+/* register type */
+
+   register long
+      hh = null,
+      mm = null;
+
+   register signed char
+      jj = null,
+      kk = null,
+      fc = null,
+      sgn = null;
+
+   register double
+      qq = ZERO,
+      dr = ZERO,
+      ds = ZERO,
+      dt = ZERO;
+/*............................................................................*/
+/* ... and others */
+
+   static long
+      lwfcl = null,
+      upfcl = null;
+
+   static short
+      cc = null; /* fluid [ connected ] component */ 
+
+   static double
+      td = ZERO,
+      kh = ZERO,
+      dut = ZERO, /* div( u*T ) */
+      dur = ZERO, /* div( u*r ) */
+      dro = ZERO, /* normalized density difference */
+      byc = ZERO, /* buoyancy factor */
+      duu[THREE] = {ZERO}, /* duu[] = div( u*r*u[] ) */
+      un[THREE] = {ZERO},
+      uf[FACES][THREE] = {{ZERO}};
+/*............................................................................*/
+# if SCT_TMDYNMC == 2
+   static long
+      nn = null;
+
+   static double
+      dug = ZERO;
+# endif
+/*............................................................................*/
+# if SLV_TMPDSP == 1 /* display temperature fld [store on file tmp.dsp<job>]*/
+   static long
+      tnmin = null,
+      tnmax = null;
+
+   static double
+      mintn = ZERO, /* minimum fluid temperature */
+      maxtn = ZERO; /* maximum fluid temperature */
+
+   static char
+      tunit[STS_SIZE] = {null};
+# endif
+/*............................................................................*/
+# if SLV_PRSDSP == 1 /* display pressure field [store on file prs.dsp<job>] */
+   static long
+      pnmin = null,
+      pnmax = null;
+
+   static double
+      minpn = ZERO, /* minimum fluid pressure */
+      maxpn = ZERO; /* maximum fluid pressure */
+
+   static char
+      punit[STS_SIZE] = {null};
+# endif
+/*............................................................................*/
+# if SLV_FLWDSP == 1 /* display velocity field [store on file flw.dsp<job>] */
+   static long
+      cumax = null;
+
+   static double
+      unn = ZERO,   /* norm of fluid velovity */
+      maxun = ZERO; /* abs. maximum of nodal fluid velocity */
+# endif
+/*............................................................................*/
+# if (( CMPRSSBL != 0 )\
+    &&( SLV_DNSDSP == 1 ))
+/* display density field [ store on file dns.dsp<job> ] */
+
+   static long
+      rnmin = null,
+      rnmax = null;
+
+   static double
+      minrn = ZERO, /* minimum fluid density */
+      maxrn = ZERO; /* maximum fluid density */
+
+   static char
+      runit[STS_SIZE] = {null};
+
+# endif /* (( CMPRSSBL != 0 ) \
+          &&( SLV_DNSDSP == 1 )) */
+/*............................................................................*/
+# if (( TURBMOD == 1 )\
+    ||( TURBMOD == 2 ))
+/* Prandtl turbulence models */
+   static double                   /* for example [not exclusively] used as:  */
+      nrm2 = ZERO,                 /* nrm2 = < u | u > = || u ||^2 ,          */
+      dvv[THREE] = {ZERO},         /* dvv[j] = < u[] | grad(u[]) >/< u|u >,   */
+      dv[THREE][THREE] = {{ZERO}}; /* dv[j][k] = du[k][j] */
+# endif /* TURBMOD != 0 */
+/*............................................................................*/
+# ifdef SCT_SMTHTMP
+/* weighting factors for 'smooth' temperature updates [ convective parts ]: */
+   static double
+      tnupwd = SCT_SMTHTMP, /* temperature upwind factor [ 0 < tnupwd <= 1 ] */
+      tndnwd = ZERO;        /* later set to ( 1. - tnupwd ) */
+# endif
+/*............................................................................*/
+# ifdef SCT_SMTHFLW
+/* weighting factors for 'smooth' velocity updates: */
+   static double
+      unupwd = SCT_SMTHFLW, /* flow upwind factor [ 0 < unupwd <=1 ] */
+      undnwd = ZERO;        /* will be set to ( 1. - unupwd ) */
+# endif
+/*............................................................................*/
+# if CMPRSSBL != 0
+/*............................................................................*/
+# ifdef SCT_SMTHDNS
+/* weighting factors for 'smooth' density updates: */
+   static double
+      dnupwd = SCT_SMTHDNS, /* density upwind factor [ 0 < dnupwd <=1 ] */
+      dndnwd = ZERO;        /* will be set to ( 1. - dnupwd ) */
+# endif
+/*............................................................................*/
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+# ifdef SCT_TMDYNMC
+/* weighting factors for 'smooth' mean temperature updates: */
+   static double
+      avupwd = 1.00e-01, /* mean temp upwind factor [ 0 < avupwd <= 1 ] */
+      avdnwd = ZERO;     /* later set to ( 1. - avupwd ) */
+# endif
+/*............................................................................*/
+/* temperature minimum and maximum in fluid connected components: */
+
+   static double
+      tmin[NFCNN+ONE] = {ZERO},
+      tmax[NFCNN+ONE] = {ZERO},
+      tvol[NFCNN+ONE] = {ZERO};
+/*............................................................................*/
+# if SCT_TMDYNMC == 2
+   static double
+      tmeanprv[NFCNN+ONE] = {ZERO},
+      ug[NFCNN+ONE] = {ZERO},
+      ugprv[NFCNN+ONE] = {ZERO};
+# endif
+/*............................................................................*/
+# if SCT_DISPL == 1
+/* for debugging purposes: */
+
+   static FILE 
+     *display = null;
+
+   static char 
+      ptr[STS_SIZE] = {null},
+    **endp = null;
+
+   char
+     *lotos( long, char );
+# endif
+/*...........................................................................*/
+   double
+      trnsvs( double *trv, double *dir, int nn ),
+      longtd( double *lgt, double *dir, int nn );
+
+   CLUSTER
+      *gradnt( CLUSTER *cls, long hh );
+/*............................................................................*/
+# if (( CMPRSSBL != 0 )\
+    &&( BSQAPRX == 0 ))
+
+   double
+      fluidstate( CLUSTER *tmp, CLUSTER *dns );
+
+# endif /* (( CMPRSSBL != 0 )\
+          &&( BSQAPRX == 0 )) */
+/*............................................................................*/
+# if SCT_DISPL == 1
+   display = stdout;
+# endif
+/*............................................................................*/
+/* overtake solverstate: */
+
+   jj = ( state->hclbl );  /* thermal/fluid structure index */
+   tpt = ( state->tpt );   /* topological structure */
+   hsp = ( state->hsp );   /* thermal and fluid flow s-parameters */
+
+/* incident [ = reflected ] thermal and fluid fields: */
+
+   hci = ( state->hre[( int )jj] );
+   hre = ( state->hre[( int )jj] );
+/*............................................................................*/
+/* INITIALIZE [ and/or reset parameters ... ] */
+/*............................................................................*/
+   tmp = ( state->tmp );
+   prs = ( state->prs );
+
+   jj = null; do
+   {
+      vel[jj] = ( state->vel[jj] );
+   } while(( ++jj ) < THREE );
+/*............................................................................*/
+# if CMPRSSBL != 0
+   dns = ( state->dns );
+
+   jj = null; do
+   {
+      flw[jj] = ( state->flw[jj] );
+   } while(( ++jj ) < THREE );
+/*............................................................................*/
+# if SLV_DNSDSP == 1
+
+   rnmin = null;
+   rnmax = null;
+   minrn = DBL_MAX; 
+   maxrn = - minrn; 
+
+   strcpy( runit, "Kg/m^3" );
+
+# endif /* SLV_DNSDSP == 1 */
+/*............................................................................*/
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+# if SLV_PRSDSP == 1
+
+   pnmin = null;
+   pnmax = null;
+   minpn = DBL_MAX; 
+   maxpn = - minpn; 
+
+   strcpy( punit, "Pa" );
+
+# endif /* SLV_PRSDSP == 1 */
+/*............................................................................*/
+# if SLV_TMPDSP == 1
+
+   tnmin = null;
+   tnmax = null;
+   mintn = DBL_MAX; 
+   maxtn = - mintn; 
+   
+/* temperature gauge [Celsius/Kelvin]: */
+   
+   if ( TEMPGGE == 0 )
+      strcpy( tunit, "K" );
+   else
+      strcpy( tunit, "DEG_C" );
+
+# endif /* SLV_TMPDSP == 1 */
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+
+   cumax = null;
+   maxun = ZERO;
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+# ifdef SCT_SMTHTMP 
+   tndnwd = ( 1. - tnupwd )*SCT_ONE_;
+# endif
+/*............................................................................*/
+# ifdef SCT_SMTHFLW
+   undnwd = ( 1. - unupwd )*SCT_ONE_;
+# endif
+/*............................................................................*/
+# if CMPRSSBL != 0
+# ifdef SCT_SMTHDNS
+   dndnwd = ( 1. - dnupwd )*SCT_ONE_;
+# endif
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+# if SCT_TMDYNMC != 0
+   avdnwd = ( 1. - avupwd )*SCT_ONE_;
+# endif
+/*............................................................................*/
+/* PARAMETER RESET/INITIALIZATION */
+/* [ call parameters at least once to satisfy the compiler */
+/* - not all parameters are used in every option ]: */
+
+   td = ZERO;
+   dt = ( state->hcdt );
+   lwfcl = ( state->lwfcl );
+   upfcl = ( state->upfcl );
+/*............................................................................*/
+   cc = null;
+   while(( cc++ ) < ( hsp->cnn[null] ))
+   {
+      tmin[cc] = DBL_MAX;
+      tmax[cc] = - tmin[cc];
+      tvol[cc] = ZERO;
+/*............................................................................*/
+# if CMPRSSBL != 0
+# if SCT_MASSCRR != 0
+      mass[cc] = ZERO;
+# endif /* SCT_MASSCRR != 0 */
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+# if SCT_TMDYNMC == 2
+      ug[cc] = ZERO;
+# endif /* SCT_TMDYNMC == ...*/
+/*............................................................................*/
+   }; /* end while(( cc++ ) < ( hsp->cnn[null] )) */
+/*............................................................................*/
+/* here starts the job: */
+/*............................................................................*/
+/* initialize on first iteration: */
+
+   if (( state->fldnn ) == null )
+   {
+      ( state->lwfcl ) = ( tpt->n )+ONE;
+      ( state->upfcl ) = null;
+
+      cc = null;
+      while(( cc++ ) < ( hsp->cnn[null] ))
+      {
+         mm = ONE;
+         while( mm <= ( tpt->n ))
+         {
+            if ( cc == ( hsp->cnn[mm] ))
+            {
+               hh = ( hsp->hh[mm] ); /* pertinent s-parameter index */
+
+               if ( mm < ( state->lwfcl ))
+                  ( state->lwfcl ) = mm;
+
+               if (( state->upfcl ) < mm )
+                  ( state->upfcl ) = mm;
+/*............................................................................*/
+# if NUSSELT != 0
+/* reset Nusselt number: */
+
+               ( hci->nus[mm] ) = 1.;
+# endif
+/*............................................................................*/
+# if TURBMOD != 0
+/* reset turbulent viscosity */
+
+               ( hci->myt[mm] ) = ( hsp->ny[hh] );
+# endif
+/*............................................................................*/
+# if CMPRSSBL != 0
+
+               ( hci->rn[mm] ) = ( hsp->rm[hh] );
+
+               fc = null; do
+               {
+                  ( hci->rf[mm][fc] ) = ( hsp->rm[hh] );
+               } while(( ++fc ) < FACES );
+# endif
+/*............................................................................*/
+            }; /* end if ( cc == ( hsp->cnn[mm] )) */
+            mm++;
+         }; /* end while( mm <= ( tpt->n )) */
+      }; /* end while(( cc++ ) < ( hsp->cnn[null] )) */
+   }; /* end if (( state->fldnn ) == null ) [ initialization terminated ] */
+/*............................................................................*/
+# if SLV_TMPDSP == 1 
+/* store temperatures: */
+
+   ( state->tmpfst ) = fopen(( state->tmpdsp ), "r+" );
+
+   fseek(( state->tmpfst ), ( state->tmpfp ), SEEK_SET );
+   fprintf(( state->tmpfst ), "\nITERATION %ld", ( state->fldnn ));
+
+# endif /* SLV_TMPDSP == 1 */
+/*............................................................................*/
+# if SLV_PRSDSP == 1 
+/* store pressure field: */
+
+   ( state->prsfst ) = fopen(( state->prsdsp ), "r+" );
+
+   fseek(( state->prsfst ), ( state->prsfp ), SEEK_SET );
+   fprintf(( state->prsfst ), "\nITERATION %ld", ( state->fldnn ));
+
+# endif /* SLV_PRSDSP == 1 */
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+/* store fluid velocities */
+
+   ( state->velfst ) = fopen(( state->veldsp ), "r+" );
+
+   fseek(( state->velfst ), ( state->velfp ), SEEK_SET );
+   fprintf(( state->velfst ), "\nITERATION %ld", ( state->fldnn ));
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+# if CMPRSSBL != 0
+# if SLV_DNSDSP == 1 
+/* store density field: */
+
+   ( state->dnsfst ) = fopen(( state->dnsdsp ), "r+" );
+
+   fseek(( state->dnsfst ), ( state->dnsfp ), SEEK_SET );
+   fprintf(( state->dnsfst ), "\nITERATION %ld", ( state->fldnn ));
+
+# endif /* SLV_DNSDSP == 1 */
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+# if SCT_TMDYNMC == 2
+/* compute balanced mean temperature [ that yields mean <un|gr> =~ ZERO ] */
+
+   cc = null;
+   while(( cc++ ) < ( hsp->cnn[null] ))
+   {
+      dug = ZERO;
+      nn = null; do
+      {
+         mm = lwfcl;
+         while( mm <= upfcl )
+         {
+            if ( cc == ( hsp->cnn[mm] ))
+            {
+               hh = ( hsp->hh[mm] ); /* pertinent s-parameter index */
+/*............................................................................*/
+# if CMPRSSBL != 0
+               ( dns->node ) = ( hci->rn[mm] );
+
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+               ( prs->node ) = ( hci->pn[mm] );
+               ( tmp->node ) = ( hci->tn[mm] );
+
+               if (( tmp->node ) < tmin[cc] )
+                  tmin[cc] = ( tmp->node );
+               if ( tmax[cc] < ( tmp->node ))
+                  tmax[cc] = ( tmp->node );
+/*............................................................................*/
+# if CMPRSSBL == 0 /* dro: density difference [ normalized to mean density ] */
+               dro = ( hsp->tmean[cc] ) - ( tmp->node );
+/* [ bm: thermal expansion coefficient [1/K] ] */
+               dro *= ( hsp->bm[hh] );
+/*............................................................................*/
+# if SCT_ADBCMPR != 0
+/* [ cm: adiabatic compression coeff [1/Pa] ] */
+
+               dro += (( prs->node )*( hsp->cm[hh] ));
+# endif /* SCT_ADBCMPR != 0 */
+/*............................................................................*/
+# else /* if CMPRSSBL != 0 */
+               dro = (( dns->node ) - ( hsp->rm[hh] ))/( hsp->rm[hh] );
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+/* buoyancy factor: */
+
+               byc = dro*dt;
+/*............................................................................*/
+               ds = ZERO;
+               jj = null; do
+               {
+                  ( vel[jj]->node ) = ( hci->un[mm][jj] );
+/*............................................................................*/
+# if CMPRSSBL != 0
+                  ( flw[jj]->node ) = ( hci->un[mm][jj] )*( dns->node );
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+                  ds += ( byc*( vel[jj]->node )*( hsp->gr[hh][jj] ));
+               } while(( ++jj ) < THREE );
+               ug[cc] += (( hsp->vol[hh] )*ds );
+            }; /* end if ( cc == ( hsp->cnn[mm] )) */
+            mm++;
+         }; /* end while( mm <= upfcl ) */
+      
+/* update mean temperature of component cc: */
+
+         if ( SCT_TRIVIAL < ( hsp->volume[cc] ))
+         {
+         /* ug[cc] /= ( hsp->volume[cc] ); */
+	 /* [ only a factor - without any effect on root finding process ] */
+
+            tmeanprv[cc] = ( hsp->tmean[cc] );
+
+            if ( nn == null )
+            {
+               ds = .5*( tmin[cc] + tmax[cc] );
+               ( hsp->tmean[cc] ) = ds;
+            }
+	    else if ( nn < TWO )
+            {
+               dug += fabs( ugprv[cc] - ug[cc] );
+               ds = ( hsp->tmean[cc] );
+
+               if ( ZERO < ug[cc] )
+                  ds -= .2*( tmax[cc] - tmin[cc] );
+               else
+                  ds += .2*( tmax[cc] - tmin[cc] );
+	     
+               ( hsp->tmean[cc] ) = avdnwd*( hsp->tmean[cc] ) + avupwd*ds;
+            }
+            else
+            {
+               ds = fabs( ugprv[cc] - ug[cc] );
+	       if ( DBL_MIN <  ds )
+               {
+                  dug += ds;
+                  ds = ( hsp->tmean[cc] );
+                  ds += (( tmeanprv[cc] - ( hsp->tmean[cc] )) / \
+                         ( ugprv[cc] - ug[cc] ));
+                  ( hsp->tmean[cc] ) = avdnwd*( hsp->tmean[cc] ) + avupwd*ds;
+               };
+            };
+            ugprv[cc] = ug[cc];
+            ug[cc] = ZERO;
+         };
+         tmin[cc] = DBL_MAX;
+         tmax[cc] = - tmin[cc];
+         nn++ ;
+      } while(( nn < THREE ) \
+         ||(( nn < SCT_MAXITRS )
+	  &&( 1.0e-15 < dug )));
+   }; /* end while(( cc++ ) < ( hsp->cnn[null] )) */
+/*............................................................................*/
+/*
+   printf( "\n fldnn = %ld, nn = %ld, tmean = %.12e, dug = %.12e ",
+      ( state->fldnn ), nn, ( hsp->tmean[0] ), dug );
+
+   if ( nn == SCT_MAXITRS )
+      fprintf( stderr, "\n%ld iterations in function %s !!!", nn, __func__ );
+*/
+/*............................................................................*/
+# endif /* SCT_TMDYNMC == 2 */
+/*............................................................................*/
+   mm = lwfcl;
+   while( mm <= upfcl )
+   {
+      cc = ( hsp->cnn[mm] );
+      if ( null < cc ) /* null < cc; index of fluid [ connected ] component */
+      {
+         hh = ( hsp->hh[mm] ); /* pertinent s-parameter index */
+/*............................................................................*/
+# if SLV_TMPDSP == 1
+/* [ node temperature ] */
+/* format --
+      -- temperature log file: 
+
+         fprintf(( state->tmpfst ),
+            "\n| cell index |" );
+         fprintf(( state->tmpfst ),
+            " temperature [<unit>]|" ); 
+*/
+         fprintf(( state->tmpfst ),
+            "\n| %10ld |", mm );
+
+# endif /* SLV_TMPDSP == 1 */
+/*............................................................................*/
+# if SLV_PRSDSP == 1
+/* [ nodal pressure ] */
+/* format --
+      -- pressure field file: 
+
+         fprintf(( state->prsfst ),
+            "\n| cell index |" );
+         fprintf(( state->prsfst ),
+            "  pressure [<unit>]  |" ); 
+*/
+         fprintf(( state->prsfst ),
+            "\n| %10ld |", mm );
+
+# endif /* SLV_PRSDSP == 1 */
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+/* [ nodal flow ] */
+/* format --
+      -- velocity log file: 
+
+         fprintf(( state->velfst ),
+            "\n| cell index |" );
+         fprintf(( state->velfst ),
+            "  v_x [m/s]  |" ); 
+         fprintf(( state->velfst ),
+            "  v_y [m/s]  |" ); 
+         fprintf(( state->velfst ),
+            "  v_z [m/s]  |" );
+*/
+         fprintf(( state->velfst ),
+            "\n| %10ld |", mm );
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+/*############################ UPDATE NODAL FLOW #############################*/
+/*............................................................................*/
+# if CMPRSSBL == 0 /* INCOMPRESSIBLE FLOW */
+/*............................................................................*/
+/* copy actual temperatures and pressures ...*/
+
+/* ->node: node value [ fixed for now ] */
+/* ->nupd: node value [ to be updated ] */
+/* ->face: face value [ helt fixed ] */
+
+/*... in the node: */
+
+         ( tmp->node ) = ( hci->tn[mm] );
+         ( tmp->nupd ) = ( tmp->node );
+
+         ( prs->node ) = ( hci->pn[mm] );
+         ( prs->nupd ) = ( prs->node );
+
+/*... and on the faces: */
+
+         fc = null; do
+         {
+            ( tmp->face[fc] ) = ( hci->tf[mm][fc] );
+            ( prs->face[fc] ) = ( hci->pf[mm][fc] );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* restore nodal temperature and pressure gradients, */
+/* in cell coordinates [ with respect to basis b[] ] */
+/* db[k] = < b[k] | grad(f) >, */
+/* and in canonical coordinates */
+/* df[k] = < e[k] | grad(f) > = adj(B^-1)*db */
+
+         tmp = gradnt( tmp, hh );
+         prs = gradnt( prs, hh );
+/*............................................................................*/
+# if SLV_TMPDSP == 1
+
+         fprintf(( state->tmpfst ),
+            " %+.9e |", ( tmp->node ));
+
+         if ( maxtn < ( tmp->node ))
+         {
+            tnmax = mm;
+            maxtn = ( tmp->node );
+         }; 
+
+         if (( tmp->node ) < mintn )
+         {
+            tnmin = mm;
+            mintn = ( tmp->node );
+         }; 
+
+# endif /* SLV_TMPDSP == 1 */
+/*............................................................................*/
+# if SLV_PRSDSP == 1
+
+         fprintf(( state->prsfst ),
+            " %+.9e |", ( prs->node ));
+
+         if ( maxpn < ( prs->node ))
+         {
+            pnmax = mm;
+            maxpn = ( prs->node );
+         }; 
+
+         if (( prs->node ) < minpn )
+         {
+            pnmin = mm;
+            minpn = ( prs->node );
+         }; 
+
+# endif /* SLV_PRSDSP == 1 */
+/*............................................................................*/
+/* copy actual flow ...*/
+
+         unn = ZERO;
+         jj = null; do
+         {
+            duu[jj] = ZERO;
+
+/*... in the node: */
+
+            un[jj] = ( hci->un[mm][jj] );
+
+            ( vel[jj]->node ) = un[jj];
+            ( vel[jj]->nupd ) = ( vel[jj]->node );
+
+/*... and on the faces: */
+
+            fc = null; do
+            {
+               uf[fc][jj] = ( hci->uf[mm][fc][jj] );
+               ( vel[jj]->face[fc] ) = uf[fc][jj];
+            } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* restore actual nodal flow gradient, */
+/* in cell coordinates [ with respect to basis b[] ], */
+/* db[k] = < b[k] | grad(*) >, */
+/* and in canonical coordinates */
+/* du[k] = < e[k] | grad(*) > = adj(B^-1)*db, */
+
+            vel[jj] = gradnt( vel[jj], hh );
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+
+            fprintf(( state->velfst ),
+               " %+.4e |", un[jj] );
+            unn += ( un[jj]*un[jj] );
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+         } while(( ++jj ) < THREE );
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+/* unn := square of nodal velocity: */
+
+         if ( maxun < unn )
+         {
+            cumax = mm;
+            maxun = unn;
+         }; 
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+# if TURBMOD != 0
+
+         jj = null; do
+         {
+            kk = null; do
+            {
+/*............................................................................*/
+# if TURBMOD == 1
+               dv[kk][jj] = ( vel[jj]->grad[kk] );
+# elif TURBMOD == 2
+               dv[jj][kk] = ( vel[jj]->du[kk] );
+# endif
+/*............................................................................*/
+            } while(( ++kk ) < THREE );
+         } while(( ++jj ) < THREE );
+# endif /* TURBMOD != 0 */
+/*............................................................................*/
+/* compute divergences */
+/* using face integrals */
+
+         dur = ZERO; /* dur = div( u ) [ velocity divergence ] */
+         dut = ZERO; /* dut = div( u*T ) */
+                     /* duu[jj] = div( u*u[jj] ) */
+
+         qq = dt/( hsp->vol[hh] );
+
+         fc = null; do
+         {
+            ds = ZERO;
+            jj = null; do
+            {
+               ds += (( vel[jj]->face[fc] )*( hsp->f[hh][fc][jj] ));
+            } while(( ++jj ) < THREE );
+
+	    ds *= qq;
+            dur += ds;
+            dut += ( ds*( tmp->face[fc] ));
+
+            jj = null; do
+            { 
+               duu[jj] += ( ds*( vel[jj]->face[fc] ));
+            } while(( ++jj ) < THREE );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* advective node temperature shift: */
+
+         ( tmp->nupd ) -= dut;
+/*............................................................................*/
+         if ( TEMPGGE == 0 )
+         {
+            if (( tmp->nupd ) < ZERO )
+               ( tmp->nupd ) = ZERO;
+         };
+/*............................................................................*/
+# ifdef SCT_SMTHTMP
+/* smooth temperature update: */
+
+         ( tmp->nupd ) *= tnupwd;
+         ( tmp->nupd ) += ( tndnwd*( tmp->node ));
+
+# endif /* SCT_SMTHTMP ... */
+/*............................................................................*/
+# ifdef SCT_RGLTEMP
+/* regularize temperature */
+
+         ds = fabs(( tmp->nupd )/SCT_RGLTEMP );
+
+	 if ( ZERO < ( tmp->nupd ))
+            ( tmp->nupd ) = ( SCT_RGLTEMP*( 1. - exp( -ds )));
+         else
+            ( tmp->nupd ) = - ( SCT_RGLTEMP*( 1. - exp( -ds )));
+# endif
+/*............................................................................*/
+/* returned nodal temperature: */
+
+         ( hre->tn[mm] ) = ( tmp->nupd );
+/*............................................................................*/
+/* heat conductivity: */
+
+         kh = ( hsp->kh[hh] );
+/*............................................................................*/
+# if NUSSELT != 0 
+
+         if ( SCT_TRIVIAL < ( hci->nus[mm] ))
+            kh *= ( hci->nus[mm] ); /* nu: Nusselt number */
+
+# endif /* NUSSELT != 0 */
+/*............................................................................*/
+/* returned [ truncated and normalized ] temperature gradient on faces: */
+
+         sgn = ONE;
+         fc = null; do
+         {
+            jj = ( short )( fc/TWO );
+            ds = ( hsp->s[hh][fc][jj] )*( tmp->nupd );
+
+            ++jj; jj%=THREE; /* jj := ( jj+ONE ) mod THREE */
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( tmp->db[jj] )/2.);
+            ++jj; jj%=THREE;
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( tmp->db[jj] )/2.);
+
+            ( hre->tt[mm][fc] ) = ds*kh;
+            ( hre->ic[mm][fc] ) = ZERO;
+
+            sgn *= ( -ONE );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* temperature minimum and maximum: */
+
+         if (( tmp->node ) < tmin[cc] )
+            tmin[cc] = ( tmp->node );
+         if ( tmax[cc] < ( tmp->node ))
+            tmax[cc] = ( tmp->node );
+
+         tvol[cc] += (( hsp->vol[hh] )*( tmp->node ));
+/*............................................................................*/
+/* Boussinesq approximation */
+/* [ with different definitions of 'mean temperature' ] */
+/*............................................................................*/
+# if SCT_TMDYNMC == 0
+/* given [ fixed ] mean temperature ->tm */
+
+         td = ( hsp->tm[hh] ) - ( tmp->node );
+
+# elif SCT_TMDYNMC == 1
+/* hsp->tmean[n]: arithmetic mean temperature of component n */
+	 
+         td = ( hsp->tmean[cc] ) - ( tmp->node );
+
+# elif SCT_TMDYNMC == 2
+/* hsp->tmean[n]: balanced mean temperature [yields mean <un|gr> =~ ZERO] */
+
+         td = ( hsp->tmean[cc] ) - ( tmp->node );
+
+# elif SCT_TMDYNMC == 3
+/* hsp->tmean[n]: volume-weighted mean temperature */
+
+         td = ( hsp->tmean[cc] ) - ( tmp->node );
+
+# endif /* SCT_TMDYNMC == ... */
+/*............................................................................*/
+# ifdef SCT_RGLBYNC
+/* regularize temperature difference: */
+
+         ds = fabs( td/SCT_RGLBYNC );
+
+         if ( ZERO < td )
+            td = ( SCT_RGLBYNC*( 1. - exp( -ds )));
+         else
+            td = - ( SCT_RGLBYNC*( 1. - exp( -ds )));
+# endif /* defined SCT_RGLBYNC */
+/*............................................................................*/
+/* bm: thermal expansion coeff [1/K] */
+
+         dro = td*( hsp->bm[hh] );
+/*............................................................................*/
+# if SCT_ADBCMPR != 0
+/* cm: adiabatic compression coeff [1/Pa] */
+
+         dro += (( prs->node )*( hsp->cm[hh] ));
+# endif /* SCT_ADBCMPR != 0 */
+/*............................................................................*/
+/* buoyancy factor: */
+
+         byc = dro*dt;
+/*............................................................................*/
+/* velocity shift from viscous stress [ ft = hcdt/rm ]: */
+
+         qq = 1./( hsp->vol[hh] );
+
+         jj = null; do
+         {
+            dr = ZERO;
+            fc = null; do
+            {
+               dr += ( hci->iu[mm][fc][jj] ); /* = < fc | grad( uf[jj] ) > */
+            } while(( ++fc ) < FACES );
+
+            dr *= qq;
+            ( vel[jj]->nupd ) +=\
+               (( hsp->ft[hh] )*( dr-( prs->grad[jj] )-( hsp->gp[hh][jj] )));
+/*............................................................................*/
+/* advective velocity shift: */
+
+            ( vel[jj]->nupd ) -= duu[jj];
+
+/*............................................................................*/
+/* gravity shift [ due to buoyancy forces ]: */
+
+            ( vel[jj]->nupd ) += ( byc*( hsp->gr[hh][jj] ));
+/*............................................................................*/
+# ifdef SCT_SMTHFLW
+/* smooth nodal velocity update: */
+
+            ( vel[jj]->nupd ) *= unupwd;
+            ( vel[jj]->nupd ) += ( undnwd*( vel[jj]->node ));
+
+# endif /* SCT_SMTHFLW ... */
+/*............................................................................*/
+# if SCT_DSSPFLW == 1
+/* optionally, flow dissipation: */
+
+            ( vel[jj]->nupd ) *= ( hsp->dc[hh] );
+# endif
+/*............................................................................*/
+# ifdef SCT_RGLFLOW
+/* optionally, regularize velocity */
+
+            ds = fabs(( vel[jj]->nupd )/SCT_RGLFLOW );
+
+            if ( ZERO < ( vel[jj]->nupd ))
+               ( vel[jj]->nupd ) = ( SCT_RGLFLOW*( 1. - exp( -ds )));
+            else
+               ( vel[jj]->nupd ) = - ( SCT_RGLFLOW*( 1. - exp( -ds )));
+# endif
+/*............................................................................*/
+/* updated nodal flow: */
+
+            ( hre->un[mm][jj] ) = ( vel[jj]->nupd );
+         } while(( ++jj ) < THREE );
+
+# endif /* CMPRSSBL == 0 [ incompressible flow ] */
+/*............................................................................*/
+/*############################################################################*/
+/*............................................................................*/
+# if CMPRSSBL != 0 /* COMPRESSIBLE FLOW */
+/*............................................................................*/
+# if SLV_DNSDSP == 1
+/* [ nodal density ] */
+/* format --
+      -- density field file: 
+
+         fprintf(( state->dnsfst ),
+            "\n| cell index |" );
+         fprintf(( state->dnsfst ),
+            "  density [<unit>]|  " );
+*/
+         fprintf(( state->dnsfst ),
+            "\n| %10ld |", mm );
+
+# endif /* SLV_DNSDSP == 1 */
+/*............................................................................*/
+/* copy actual temperatures, pressures, and densities ...*/
+
+/* ->node: node value [ fixed for now ] */
+/* ->nupd: node value [ to be updated ] */
+/* ->face: face value [ helt fixed ] */
+
+/*... in the node: */
+
+         ( tmp->node ) = ( hci->tn[mm] );
+         ( tmp->nupd ) = ( tmp->node );
+
+         ( prs->node ) = ( hci->pn[mm] );
+         ( prs->nupd ) = ( prs->node );
+
+         ( dns->node ) = ( hci->rn[mm] );
+         ( dns->nupd ) = ( dns->node );
+
+/*... and on the faces: */
+
+         fc = null; do
+         {
+            ( tmp->face[fc] ) = ( hci->tf[mm][fc] );
+            ( prs->face[fc] ) = ( hci->pf[mm][fc] );
+            ( dns->face[fc] ) = ( hci->rf[mm][fc] );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* restore nodal temperature and pressure gradients, */
+/* in cell coordinates [ with respect to basis b[] ] */
+/* db[k] = < b[k] | grad(f) >, */
+/* and in canonical coordinates */
+/* df[k] = < e[k] | grad(f) > = adj(B^-1)*db */
+
+         tmp = gradnt( tmp, hh );
+         prs = gradnt( prs, hh );
+         dns = gradnt( dns, hh );
+/*............................................................................*/
+# if SLV_TMPDSP == 1
+
+         fprintf(( state->tmpfst ),
+            " %+.9e |", ( tmp->node ));
+
+         if ( maxtn < ( tmp->node ))
+         {
+            tnmax = mm;
+            maxtn = ( tmp->node );
+         }; 
+
+         if (( tmp->node ) < mintn )
+         {
+            tnmin = mm;
+            mintn = ( tmp->node );
+         }; 
+
+# endif /* SLV_TMPDSP == 1 */
+/*............................................................................*/
+# if SLV_PRSDSP == 1
+
+         fprintf(( state->prsfst ),
+            " %+.9e |", ( prs->node ));
+
+         if ( maxpn < ( prs->node ))
+         {
+            pnmax = mm;
+            maxpn = ( prs->node );
+         }; 
+
+         if (( prs->node ) < minpn )
+         {
+            pnmin = mm;
+            minpn = ( prs->node );
+         }; 
+
+# endif /* SLV_PRSDSP == 1 */
+/*............................................................................*/
+# if SLV_DNSDSP == 1
+
+         fprintf(( state->dnsfst ),
+            " %+.9e |", ( dns->node ));
+
+         if ( maxrn < ( dns->node ))
+         {
+            rnmax = mm;
+            maxrn = ( dns->node );
+         }; 
+
+         if (( dns->node ) < minrn )
+         {
+            rnmin = mm;
+            minrn = ( dns->node );
+         }; 
+
+# endif /* SLV_DNSDSP == 1 */
+/*............................................................................*/
+/* copy actual flow ...*/
+
+         unn = ZERO;
+         jj = null; do
+         {
+            duu[jj] = ZERO;
+
+/*... in the node: */
+
+            un[jj] = ( hci->un[mm][jj] );
+
+            ( vel[jj]->node ) = un[jj];
+            ( vel[jj]->nupd ) = ( vel[jj]->node );
+
+            ( flw[jj]->node ) = un[jj]*( dns->node );
+            ( flw[jj]->nupd ) = ( flw[jj]->node );
+
+/*... and on the faces: */
+
+            fc = null; do
+            {
+               uf[fc][jj] = ( hci->uf[mm][fc][jj] );
+               ( vel[jj]->face[fc] ) = uf[fc][jj];
+               ( flw[jj]->face[fc] ) = uf[fc][jj]*( dns->face[fc] );
+            } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* restore actual nodal flow gradient, */
+/* in cell coordinates [ with respect to basis b[] ], */
+/* db[k] = < b[k] | grad(*) >, */
+/* and in canonical coordinates */
+/* du[k] = < e[k] | grad(*) > = adj(B^-1)*db, */
+
+            vel[jj] = gradnt( vel[jj], hh );
+            flw[jj] = gradnt( flw[jj], hh );
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+
+            fprintf(( state->velfst ),
+               " %+.4e |", un[jj] );
+            unn += ( un[jj]*un[jj] );
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+         } while(( ++jj ) < THREE );
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+/* unn := square of nodal velocity: */
+
+         if ( maxun < unn )
+         {
+            cumax = mm;
+            maxun = unn;
+         }; 
+
+# endif /* SLV_FLWDSP == 1 */
+/*............................................................................*/
+# if TURBMOD != 0
+
+         jj = null; do
+         {
+            kk = null; do
+            {
+/*............................................................................*/
+# if TURBMOD == 1
+               dv[kk][jj] = ( vel[jj]->grad[kk] );
+# elif TURBMOD == 2
+               dv[jj][kk] = ( vel[jj]->du[kk] );
+# endif
+/*............................................................................*/
+            } while(( ++kk ) < THREE );
+         } while(( ++jj ) < THREE );
+
+# endif /* TURBMOD != 0 */
+/*............................................................................*/
+/* compute divergences */
+/* using face integrals */
+
+         dur = ZERO; /* dur = div( u*r ) [ flow divergence ] */
+         dut = ZERO; /* dut = div( u*T ) */
+                     /* duu[jj] = div( u*r*u[jj] ) */
+
+         qq = dt/( hsp->vol[hh] );
+
+         fc = null; do
+         {
+            dr = ZERO;
+            ds = ZERO;
+            jj = null; do
+            {
+               dr += (( flw[jj]->face[fc] )*( hsp->f[hh][fc][jj] ));
+               ds += (( vel[jj]->face[fc] )*( hsp->f[hh][fc][jj] ));
+            } while(( ++jj ) < THREE );
+
+	    dr *= qq;
+	    ds *= qq;
+            dur += dr;
+            dut += ( ds*( tmp->face[fc] ));
+
+            jj = null; do
+            { 
+               duu[jj] += ( dr*( vel[jj]->face[fc] ));
+            } while(( ++jj ) < THREE );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* advective node temperature shift: */
+
+         ( tmp->nupd ) -= dut;
+/*............................................................................*/
+         if ( TEMPGGE == 0 )
+         {
+            if (( tmp->nupd ) < ZERO )
+               ( tmp->nupd ) = ZERO;
+         };
+/*............................................................................*/
+# ifdef SCT_SMTHTMP
+/* smooth temperature update: */
+
+         ( tmp->nupd ) *= tnupwd;
+         ( tmp->nupd ) += ( tndnwd*( tmp->node ));
+
+# endif /* SCT_SMTHTMP ... */
+/*............................................................................*/
+# ifdef SCT_RGLTEMP
+/* regularize temperature */
+
+         ds = fabs(( tmp->nupd )/SCT_RGLTEMP );
+
+	 if ( ZERO < ( tmp->nupd ))
+            ( tmp->nupd ) = ( SCT_RGLTEMP*( 1. - exp( -ds )));
+         else
+            ( tmp->nupd ) = - ( SCT_RGLTEMP*( 1. - exp( -ds )));
+# endif
+/*............................................................................*/
+/* returned nodal temperature: */
+
+         ( hre->tn[mm] ) = ( tmp->nupd );
+/*............................................................................*/
+/* heat conductivity: */
+
+         kh = ( hsp->kh[hh] );
+/*............................................................................*/
+# if NUSSELT != 0 
+
+         if ( SCT_TRIVIAL < ( hci->nus[mm] ))
+            kh *= ( hci->nus[mm] ); /* nu: Nusselt number */
+
+# endif /* NUSSELT != 0 */
+/*............................................................................*/
+/* returned [ truncated and normalized ] temperature gradient on faces: */
+
+         sgn = ONE;
+         fc = null; do
+         {
+            jj = ( short )( fc/TWO );
+            ds = ( hsp->s[hh][fc][jj] )*( tmp->nupd );
+
+            ++jj; jj%=THREE; /* jj := ( jj+ONE ) mod THREE */
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( tmp->db[jj] )/2.);
+            ++jj; jj%=THREE;
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( tmp->db[jj] )/2.);
+
+            ( hre->tt[mm][fc] ) = ds*kh;
+            ( hre->ic[mm][fc] ) = ZERO;
+
+            sgn *= ( -ONE );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* temperature minimum and maximum: */
+
+         if (( tmp->node ) < tmin[cc] )
+            tmin[cc] = ( tmp->node );
+         if ( tmax[cc] < ( tmp->node ))
+            tmax[cc] = ( tmp->node );
+
+         tvol[cc] += (( hsp->vol[hh] )*( tmp->node ));
+/*............................................................................*/
+# if BSQAPRX == 0
+/* update pressure by a state function [ p = p ( T, ro ) ] */
+
+         ( prs->nupd ) = fluidstate( tmp, dns );
+
+# else /* if BSQAPRX != 0 */
+
+         if ( SCT_TRIVIAL < fabs( hsp->cm[hh] ))
+            ( prs->nupd ) += ( dur/(( hsp->cm[hh] )*( hsp->rm[hh] )));
+
+# endif /* BSQAPRX != 0 */
+/*............................................................................*/
+/* returned nodal pressure: */
+
+         ( hre->pn[mm] ) = ( prs->nupd );
+/*............................................................................*/
+/* returned [ truncated and normalized ] pressure gradient on the faces: */
+
+         sgn = ONE;
+         fc = null; do
+         {
+            jj = ( short )( fc/TWO );
+            ds = ( hsp->s[hh][fc][jj] )*( prs->nupd );
+
+            ++jj; jj%=THREE; /* jj := ( jj+ONE ) mod THREE */
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( prs->db[jj] )/2.);
+            ++jj; jj%=THREE;
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( prs->db[jj] )/2.);
+
+            ( hre->pt[mm][fc] ) = ds;
+
+            sgn *= ( -ONE );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* nodal density shift [ net inflow ]: */
+
+         ( dns->nupd ) -= dur;
+/*............................................................................*/
+# ifdef SCT_SMTHDNS
+/* smooth nodal density update: */
+
+         ( dns->nupd ) *= dnupwd;
+         ( dns->nupd ) += dndnwd*( dns->node );
+
+# endif /* SCT_SMTHDNS ... */
+/*............................................................................*/
+/* returned nodal density: */
+
+         ( hre->rn[mm] ) = ( dns->nupd );
+/*............................................................................*/
+/* returned [ truncated and normalized ] density gradient on the faces: */
+
+         sgn = ONE;
+         fc = null; do
+         {
+            jj = ( short )( fc/TWO );
+            ds = ( hsp->s[hh][fc][jj] )*( dns->nupd );
+
+            ++jj; jj%=THREE; /* jj := ( jj+ONE ) mod THREE */
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( dns->db[jj] )/2.);
+            ++jj; jj%=THREE;
+            ds += ( sgn*( hsp->s[hh][fc][jj] )*( dns->db[jj] )/2.);
+
+            ( hre->rt[mm][fc] ) = ds;
+
+            sgn *= ( -ONE );
+         } while(( ++fc ) < FACES );
+/*............................................................................*/
+# if SCT_MASSCRR != 0
+         mass[cc] += (( hsp->vol[hh] )*( dns->nupd ));
+# endif /* SCT_MASSCRR != 0 */
+/*............................................................................*/
+# if BSQAPRX != 0 /* Boussinesq approximation */
+/* [ with different definitions of 'mean temperature' ] */
+/*............................................................................*/
+# if SCT_TMDYNMC == 0
+/* given [ fixed ] mean temperature ->tm */
+
+         td = ( hsp->tm[hh] ) - ( tmp->node );
+
+# elif SCT_TMDYNMC == 1
+/* hsp->tmean[n]: arithmetic mean temperature of component n */
+	 
+         td = ( hsp->tmean[cc] ) - ( tmp->node );
+
+# elif SCT_TMDYNMC == 2
+/* hsp->tmean[n]: balanced mean temperature [yields mean <un|gr> =~ ZERO] */
+
+         td = ( hsp->tmean[cc] ) - ( tmp->node );
+
+# elif SCT_TMDYNMC == 3
+/* hsp->tmean[n]: volume-weighted mean temperature */
+
+         td = ( hsp->tmean[cc] ) - ( tmp->node );
+
+# endif /* SCT_TMDYNMC == ... */
+/*............................................................................*/
+# ifdef SCT_RGLBYNC
+/* regularize temperature difference: */
+
+         ds = fabs( td/SCT_RGLBYNC );
+
+         if ( ZERO < td )
+            td = ( SCT_RGLBYNC*( 1. - exp( -ds )));
+         else
+            td = - ( SCT_RGLBYNC*( 1. - exp( -ds )));
+
+# endif /* defined SCT_RGLBYNC */
+/*............................................................................*/
+/* bm: thermal expansion coeff [1/K] */
+
+         dro = td*( hsp->bm[hh] );
+/*............................................................................*/
+# if SCT_ADBCMPR != 0
+/* cm: adiabatic compression coeff [1/Pa] */
+
+         dro += (( prs->node )*( hsp->cm[hh] ));
+# endif /* SCT_ADBCMPR != 0 */
+/*............................................................................*/
+# else /* BSQAPRX == 0 */
+
+         dro = (( dns->node ) - ( hsp->rm[hh] ))/( hsp->rm[hh] );
+# endif /* BSQAPRX == 0 */
+/*............................................................................*/
+/* buoyancy factor: */
+
+         byc = dro*dt;
+/*............................................................................*/
+/* velocity shift due to pressure and viscous stress: */
+
+         qq = dt/( hsp->vol[hh] );
+
+         jj = null; do
+         {
+            dr = ZERO;
+            fc = null; do
+            {
+               dr += ( hci->iu[mm][fc][jj] ); /* = < fc | grad( uf[jj] ) > */
+            } while(( ++fc ) < FACES );
+
+            dr *= qq;
+            ( flw[jj]->nupd ) +=\
+               ( dr - dt*(( prs->grad[jj] ) + ( hsp->gp[hh][jj] )));
+/*............................................................................*/
+/* advective shift: */
+
+            ( flw[jj]->nupd ) -= duu[jj];
+            ( vel[jj]->nupd ) = ( flw[jj]->nupd )/( dns->nupd );
+/*............................................................................*/
+/* gravity shift: */
+
+            ( vel[jj]->nupd ) += ( byc*( hsp->gr[hh][jj] ));
+/*............................................................................*/
+# ifdef SCT_SMTHFLW
+/* smooth nodal velocity update: */
+
+            ( vel[jj]->nupd ) *= unupwd;
+            ( vel[jj]->nupd ) += ( undnwd*( vel[jj]->node ));
+
+# endif /* SCT_SMTHFLW ... */
+/*............................................................................*/
+# if SCT_DSSPFLW == 1
+/* optionally, flow dissipation: */
+
+            ( vel[jj]->nupd ) *= ( hsp->dc[hh] );
+# endif
+/*............................................................................*/
+# ifdef SCT_RGLFLOW
+/* optionally, regularize velocity */
+
+            ds = fabs(( vel[jj]->nupd )/SCT_RGLFLOW );
+
+            if ( ZERO < ( vel[jj]->nupd ))
+               ( vel[jj]->nupd ) = ( SCT_RGLFLOW*( 1. - exp( -ds )));
+            else
+               ( vel[jj]->nupd ) = - ( SCT_RGLFLOW*( 1. - exp( -ds )));
+# endif
+/*............................................................................*/
+/* returned nodal velocity: */
+
+            ( hre->un[mm][jj] ) = ( vel[jj]->nupd );
+
+         } while(( ++jj ) < THREE );
+
+# endif /* CMPRSSBL != 0 [ compressible flow ] */
+/*............................................................................*/
+/*############################################################################*/
+/*............................................................................*/
+# if SCT_BNDCLIP != 0 /* [ FLOW CLIPPING at domain boundaries ] */
+
+         fc = null; do
+         {
+            switch( hsp->fctype[mm][fc] )
+            {
+              default: /* null: adjacent cell in the same fluid */
+              break;   /* connected component */
+/*............................................................................*/
+# if SLV_OUTMODE != 0
+
+              case -ONE: /* outflow: reduce to face-normal comp */
+               longtd(( hre->un[mm] ), ( hsp->f[hh][fc] ), THREE );
+               longtd(( hre->uf[mm][fc] ), ( hsp->f[hh][fc] ), THREE );
+              break;
+# endif
+/*............................................................................*/
+# if SCT_BNDCLIP == 1
+
+              case TWO: /* no-slip: cut face-normal component */
+               trnsvs(( hre->un[mm] ), ( hsp->f[hh][fc] ), THREE );
+              break;
+
+              case THREE: /* free slip: cut face-normal comp */
+               trnsvs(( hre->un[mm] ), ( hsp->f[hh][fc] ), THREE );
+              break;
+# endif /* SCT_BNDCLIP == 1 */
+/*............................................................................*/
+            }; /* end switch */
+         } while(( ++fc ) < FACES );
+# endif /* SCT_BNDCLIP != 0 [ FLOW CLIPPING at domain boundaries ] */
+/*............................................................................*/
+/* returned [ truncated and normalized ] flow gradients on faces: */
+
+         jj = null; do
+         {
+            sgn = ONE;
+            fc = null; do
+            {
+               kk = ( short ) ( fc/TWO );
+               ds = ( hsp->s[hh][fc][kk] )*( hre->un[mm][jj] );
+
+               ++kk; kk%=THREE; /* kk := ( kk+ONE ) mod THREE */
+               ds += ( sgn*( hsp->s[hh][fc][kk] )*( vel[jj]->db[kk] )/2.);
+               ++kk; kk%=THREE;
+               ds += ( sgn*( hsp->s[hh][fc][kk] )*( vel[jj]->db[kk] )/2.);
+/*............................................................................*/
+# if TURBMOD != 0
+               ( hre->ut[mm][fc][jj] ) = ( hre->myt[mm] );
+# else
+               ( hre->ut[mm][fc][jj] ) = ( hsp->ny[hh] );
+# endif
+/*............................................................................*/
+               ( hre->ut[mm][fc][jj] ) *= ds;
+               ( hre->iu[mm][fc][jj] ) = ZERO;
+
+               sgn *= ( -ONE );
+            } while(( ++fc ) < FACES );
+         } while(( ++jj ) < THREE );
+/*............................................................................*/
+/* TURBULENCE MODELS */
+/* [ optionally ] update turbulent viscosity */
+/*............................................................................*/
+/* Prandtl turbulence models */
+# if (( TURBMOD == 1 ) \
+    ||( TURBMOD == 2 ))
+
+         nrm2 = longtd( un, un, THREE );   /* nrm2 = < un | un > */
+
+         if ( SCT_TRIVIAL < nrm2 )
+         {
+            ( hre->myt[mm] ) = ZERO;
+/*............................................................................*/
+# if TURBMOD == 1 /* [ simplified Prandtl model ]                             */
+
+            jj = null; do
+            {
+/*............................................................................*/
+               trnsvs( dv[jj], un, THREE );     /* the un-transverse         */
+/*.............................................*//* component of dv[jj][]     */
+               kk = null; do
+               {
+                  ds = dv[jj][kk];
+                  ( hre->myt[mm] ) += ( ds*ds );
+               } while(( ++kk ) < THREE );
+            } while(( ++jj ) < THREE );
+/*............................................................................*/
+# elif TURBMOD == 2 
+/* refined Prandtl model */
+/* dvv[k] = < grad(u[*])[k] | u[*] >/< u | u >, then redefine */
+/* dvv := dvv - < dvv | u >/< u | u > [ the u-transverse component of dvv ] */
+
+            jj = null; do
+            {
+/* scalar product dvv[k] = < dv[k][] | u[] >, then redefine */
+/* dv[k][] := dvv[k]*u[]/< u[] | u[] > [ the u-longitdnl component of dv[k] ] */
+               dvv[jj] = longtd( dv[jj], un, THREE );
+            } while(( ++jj ) < THREE );
+/*............................................................................*/
+            trnsvs( dvv, un, THREE );         /* dvv := the u-transverse     */
+/*...........................................*//* component of dvv            */
+            jj = null; do
+            {
+               ds = dvv[jj];
+               ( hre->myt[mm] ) += ( ds*ds );
+            } while(( ++jj ) < THREE );
+# endif /* TURBMOD == 2 */
+/*............................................................................*/
+/* new turbulent viscosity [ Prandtl models ] */
+
+            ( hre->myt[mm] ) = sqrt( hre->myt[mm] );
+            ( hre->myt[mm] ) *= ( hsp->rl2[hh] );
+            ( hre->myt[mm] ) += ( hsp->ny[hh] );
+         } /* end if ( SCT_TRIVIAL < nrm2 ) */
+         else /* if nrm2 < SCT_TRIVIAL */
+            ( hre->myt[mm] ) = ( hsp->ny[hh] );
+# endif /* ( TURBMOD == 1 )||( TURBMOD == 2 ) */
+/*............................................................................*/
+      }; /* end if ( null < cc == ( hsp->cnn[mm] )) */
+      mm++;
+   }; /* end while( mm <= upfcl ) */
+/*............................................................................*/
+/* update mean temperatures of fluid connected components: */
+
+   cc = null;
+   while(( cc++ ) < ( hsp->cnn[null] ))
+   {
+      if ( SCT_TRIVIAL < ( hsp->volume[cc] ))
+         tvol[cc] /= ( hsp->volume[cc] );
+/*............................................................................*/
+# if CMPRSSBL != 0
+# if SCT_MASSCRR != 0
+      if ( SCT_TRIVIAL < ( hsp->mass[cc] ))
+         ( hsp->msdr[cc] ) = mass[cc]/( hsp->mass[cc] );
+
+/* mass correction: */
+
+      if ( SCT_TRIVIAL < ( hsp->msdr[cc] ))
+      {
+         mm = lwfcl;
+         while( mm <= upfcl )
+         {
+            if ( cc == ( hsp->cnn[mm] ))
+               ( hre->rn[mm] ) /= ( hsp->msdr[cc] );
+            mm++;
+         }; /* end while( mm <= upfcl ) */
+      }; /* end if ( SCT_TRIVIAL < ( hsp->msdr[cc] )) */
+      mass[cc] = ZERO;
+# endif /* SCT_MASSCRR != 0 */
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+# if SCT_TMDYNMC == 1
+
+      ( hsp->tmean[cc] ) *= avdnwd;
+      ( hsp->tmean[cc] ) += ( avupwd*\
+         (( 1.- SCT_TMDWGHT )*tmin[cc] + SCT_TMDWGHT*tmax[cc] ));
+
+# elif SCT_TMDYNMC == 2
+/*--- do nothing ---*/
+# elif SCT_TMDYNMC == 3
+
+      ( hsp->tmean[cc] ) *= avdnwd;
+      ( hsp->tmean[cc] ) += ( avupwd*tvol[cc] );
+
+# else /* SCT_TMDYNMC == ... */
+
+      ( hsp->tmean[cc] ) = .5*( tmin[cc] + tmax[cc] );
+
+# endif /* SCT_TMDYNMC == ... */
+/*............................................................................*/
+      tmin[cc] = DBL_MAX;
+      tmax[cc] = - tmin[cc];
+      tvol[cc] = ZERO;
+   }; /* end while(( ++cc ) < ( hsp->cnn[null] )) */
+/*............................................................................*/
+# if SLV_TMPDSP == 1
+
+   fprintf(( state->tmpfst ), "\nDANSE-%s --------", DSC_RELEASE );
+   jj = null; do
+   {
+      fprintf(( state->tmpfst ), "----------" );
+   } while(( ++jj ) < SIX );
+
+   fprintf(( state->tmpfst ), "\nminimum fluid temperature Tmin = % .4e %s "
+      "in cell no %ld", mintn, tunit, tnmin );
+   fprintf(( state->tmpfst ), "\nmaximum fluid temperature Tmax = % .4e %s "
+      "in cell no %ld", maxtn, tunit, tnmax );
+   
+   cc = null;
+   while(( cc++ ) < ( hsp->cnn[null] ))
+   {
+      if ( SCT_TRIVIAL < ( hsp->volume[cc] ))
+      {
+         fprintf(( state->tmpfst ), "\nmean fluid temperature in component "
+            "no %d: % .8e %s", cc, ( hsp->tmean[cc] ), tunit );
+      };
+   }; /* end while(( cc++ ) < ( hsp->cnn[null] )) */
+
+   fprintf(( state->tmpfst ), "\n" );
+   ( state->tmpef ) = ftell( state->tmpfst );
+
+   fclose( state->tmpfst );
+
+# endif /* SLV_TMPDSP == 1 */
+/*............................................................................*/
+# if SLV_PRSDSP == 1
+
+   fprintf(( state->prsfst ), "\nDANSE-%s --------", DSC_RELEASE );
+   jj = null; do
+   {
+      fprintf(( state->prsfst ), "----------" );
+   } while(( ++jj ) < SIX );
+
+   fprintf(( state->prsfst ), "\nminimum fluid pressure Pmin = % .4e %s "
+      "in cell no %ld", minpn, punit, pnmin );
+   fprintf(( state->prsfst ), "\nmaximum fluid pressure Pmax = % .4e %s "
+      "in cell no %ld", maxpn, punit, pnmax );
+
+   cc = null;
+   while(( cc++ ) < ( hsp->cnn[null] ))
+   {
+      if ( SCT_TRIVIAL < ( hsp->eptlt[cc] ))
+         fprintf(( state->prsfst ), "\ntotal potential energy Eprs = % .4e %s "
+            "in fluid component %d", ( hsp->eptlt[cc] ), "J", cc );
+   };
+
+   fprintf(( state->prsfst ), "\n" );
+   ( state->prsef ) = ftell( state->prsfst );
+
+   fclose( state->prsfst );
+
+# endif /* SLV_PRSDSP == 1 */
+/*............................................................................*/
+# if SLV_FLWDSP == 1
+
+   fprintf(( state->velfst ), "\nDANSE-%s ----", DSC_RELEASE );
+   jj = null; do
+   {
+      fprintf(( state->velfst ), "----------" );
+   } while(( ++jj ) < FOUR );
+
+   maxun = sqrt( maxun );
+   fprintf(( state->velfst ), "\nvelocity maximum |vn| = %.6e m/s "
+      "on cell no %ld", maxun, cumax );
+
+   fprintf(( state->velfst ), "\n" );
+   ( state->velef ) = ftell( state->velfst );
+
+   fclose( state->velfst );
+
+# endif
+/*............................................................................*/
+# if CMPRSSBL != 0
+# if SLV_DNSDSP == 1
+
+   fprintf(( state->dnsfst ), "\nDANSE-%s --------", DSC_RELEASE );
+
+   jj = null; do
+   {
+      fprintf(( state->dnsfst ), "----------" );
+   } while(( ++jj ) < SIX );
+
+   fprintf(( state->dnsfst ), "\nminimum fluid density: % .4e %s "
+      "in cell no %ld", minrn, runit, rnmin );
+   fprintf(( state->dnsfst ), "\nmaximum fluid density: % .4e %s "
+      "in cell no %ld", maxrn, runit, rnmax );
+
+   cc = null;
+   while(( cc++ ) < ( hsp->cnn[null] ))
+   {
+/* hsp->msdr[cc]: mass surplus ratio of fluid connected component cc */
+/* [ ds: mass surplus in percent ] */
+
+      ds = 100.*(( hsp->msdr[cc] ) -1. );
+/*............................................................................*/
+# if SCT_MASSCRR == 0
+
+      fprintf(( state->dnsfst ), "\nrelative mass surplus: %+.4e %c "
+         "in fluid component %d", ds, 37, cc );
+                                                   /* [ ASCII char 37 = '%' ] */
+# else /* if SCT_MASSCRR != 0 */
+
+      fprintf(( state->dnsfst ), "\n%+.4e %c mass surplus in fluid "
+         "component %d [ corrected ]", ds, 37, cc );
+
+# endif /* SCT_MASSCRR == 0 */
+/*............................................................................*/
+   };
+
+   fprintf(( state->dnsfst ), "\n" );
+   ( state->dnsef ) = ftell( state->dnsfst );
+
+   fclose( state->dnsfst );
+
+# endif /* SLV_DNSDSP == 1 */
+# endif /* CMPRSSBL != 0 */
+/*............................................................................*/
+/* next iteration: */
+
+   ( state->fldnn )++;
+/*............................................................................*/
+   return hre;
+}
+/*============================================================================*/
+# undef SCT_TRIVIAL
+# undef SCT_PRSTRNC
+# undef SCT_SMTHTMP
+# undef SCT_SMTHFLW
+# undef SCT_RGLBYNC
+# undef SCT_RGLTEMP
+# undef SCT_RGLFLOW
+# undef SCT_DSSPFLW
+# undef SCT_TMDYNMC
+# undef SCT_TMDWGHT
+# undef SCT_BNDCLIP
+# undef SCT_MAXITRS
+# undef SCT_DISPL
+# undef SCT_ONE_
+/*********************** end of function body sctflow(*) **********************/
+/************************* end of file sctflow-1.0r3.a ************************/

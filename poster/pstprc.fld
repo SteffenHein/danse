@@ -1,0 +1,2925 @@
+/* [ file: pstprc.fld ] */
+/*******************************************************************************
+*                                                                              *
+*   ANSI C function pstprc.c                                                   *
+*   [ DANSE - Discrete Approximation of the Navier Stokes Equations,           *
+*     release 1.0 ]                                                            *
+*                                                                              *
+*   DSC Postprocessing function                                                *
+*                                                                              *
+*   (C) SHEIN; Munich, February 2007                          Steffen Hein     *
+*   [ Update: April 09, 2022 ]                             <contact@sfenx.de>  *
+*                                                                              *
+*******************************************************************************/
+
+/*----------------------------------------------------------------------------*/
+/* Gnuplot pause/sec [ X in gnuplot 'pause X' command ]: */
+
+# ifndef PST_PAUSE
+   # define PST_PAUSE ( -1 )
+# endif
+/*............................................................................*/
+/* Disable/enable temperature plot [0/1:colored gnuplot/2:2D gnuplot] */
+# ifndef PST_TMPPLT 
+   # define PST_TMPPLT 4
+# endif
+/*............................................................................*/
+/* Disable/enable pressure plot [0/1:colored gnuplot/2:2D gnuplot] */
+# ifndef PST_PRSPLT
+   # define PST_PRSPLT 4
+# endif
+/*............................................................................*/
+/* Disable/enable density plot [0/1:colored gnuplot/2:2D gnuplot] */
+# ifndef PST_DNSPLT
+   # define PST_DNSPLT 4
+# endif
+/*............................................................................*/
+/* Disable/enable fluid velocity plot [2:2D/3:3D/4:2D gnuplot/5:3D gnuplot] */
+# ifndef PST_FLWPLT 
+   # define PST_FLWPLT 4
+# endif
+/*............................................................................*/
+/* Disable/enable some display functions on standard output [0/1] */
+# ifndef PST_DISPL
+   # define PST_DISPL 0 
+# endif
+/*............................................................................*/
+/* Disable/enable equally scaled axes [0/1] */
+# ifndef PST_ISOSCLE
+   # define PST_ISOSCLE 1
+# endif
+/*............................................................................*/
+/* PST_SCLFLW: Scale of flow [ maximum fluid velocity, e.g. ] */
+# ifndef PST_SCLFLW 
+   # define PST_SCLFLW 0
+# endif
+/*............................................................................*/
+/* Scale, length of vectors */
+# ifndef PST_SCALE1
+   # define PST_SCALE1 (( double )( 1.000e-01 ))
+# endif
+/*............................................................................*/
+/* Scale, length of vector pointers */
+# ifndef PST_SCALE2
+   # define PST_SCALE2 (( double )( 1.000e-02 ))
+# endif
+/*............................................................................*/
+/* Start plot of pressure beyond this cell index [with N=PST_PRSINIT+1] */
+# ifndef PST_PRSINIT
+   # define PST_PRSINIT 1
+# endif
+/*............................................................................*/
+/* Start plot of density beyond this cell index [with N=PST_PRSINIT+1] */
+# ifndef PST_DNSINIT
+   # define PST_DNSINIT 1
+# endif
+/*............................................................................*/
+/* Disable/enable plot of mesh cell sytem [0/1] */
+# ifndef PST_MESH
+   # define PST_MESH 0
+# endif
+/*............................................................................*/
+/* Disable/enable plot of walls [0:none / 1:E-walls / 2:E-walls and M-walls] */
+# ifndef PST_WALLS
+   # define PST_WALLS 0
+# endif
+/*............................................................................*/
+/* Enter this maximum number of strings to check start of data string */
+# ifndef PST_MAXSTRNGS 
+   # define PST_MAXSTRNGS 100
+# endif
+/*............................................................................*/
+/* Unscaled gnuplot range: abs( log10( x )) < PST_UNSCALED */
+# ifndef PST_UNSCALED
+   # define PST_UNSCALED 4
+# endif
+/*----------------------------------------------------------------------------*/
+# ifndef CLSCREEN
+# if USE_NCURSES == 1
+/* 'my_terminal' configuration: */
+
+   # include <termcap.h> /* terminal type header */
+   static char *term;    /* terminal type string */ 
+
+   # define CLSCREEN {\
+     printf( "%s", tgetstr( "cl", null )); \
+   }
+
+   # define PRBLDCLR(a) {\
+     printf( "%s%s", tgetstr( "md", null ), (a)); /* bold clear output */ \
+   }
+
+   # define PRINVERS(a) {\
+     printf( "%s%s", tgetstr( "mr", null ), (a)); /* inverse */ \
+   }
+
+   # define PRNORMAL(a) {\
+     printf( "%s%s", tgetstr( "me", null ), (a)); /* back to normal output */ \
+   }
+# else
+   # define CLSCREEN { ;\
+   }
+
+   # define PRBLDCLR(a) {\
+     printf( "%s", (a));\
+   }
+
+   # define PRINVERS(a) {\
+     printf( "%s", (a));\
+   }
+
+   # define PRNORMAL(a) {\
+     printf( "%s", (a));\
+   }
+# endif /* USE_NCURSES == ... */
+# endif /* not defined CLSCREEN */
+/*============================================================================*/
+
+POSTSTATE *\
+pstprc( POSTSTATE *stp )
+{
+/* declarations: */
+
+   static POSTSTATE
+     *state;
+/*............................................................................*/
+# if (( PST_TMPPLT != 0 )\
+    ||( PST_PRSPLT != 0 )\
+    ||( PST_DNSPLT != 0 )\
+    ||( PST_FLWPLT != 0 ))
+
+   static FILE
+     *crdstr = NULL,
+     *vtxstr = NULL;
+
+   static long
+      nodes[NODES] = {null}, /* mesh cell [ node ] indices */
+      points[NODES+ONE][EIGHT] = {{null}}; /* mesh cell vertex point indices */
+
+   static double
+      vcords[CPNTS+ONE][THREE] = {{ZERO}}, /* vertex point coordinates */
+      ccords[NODES+ONE][THREE] = {{ZERO}}; /* mesh cell coordinates */
+
+   static char 
+      ptr[STS_SIZE] = {null}, 
+      vtxfle[STS_SIZE] = {null},
+      crdfle[STS_SIZE] = {null},
+    **endp = NULL;
+
+   static const char
+      *scformat = "%80s";
+
+   static signed char 
+      kk = null,
+      tnopt = null,
+      propt = null,
+      dsopt = null,
+      flopt = null,
+      alopt = null,
+      option = null;
+
+   static short 
+      ii = null;
+
+   static long 
+      ll = null,
+      mm = null,
+      nnf = null;
+
+   static double
+      ss = ZERO,
+      xx = ZERO,
+      yy = ZERO,
+      zz = ZERO,
+      xmid = ZERO,
+      ymid = ZERO,
+      zmid = ZERO,
+      xmin = ZERO,
+      ymin = ZERO,
+      zmin = ZERO,
+      xmax = ZERO,
+      ymax = ZERO,
+      zmax = ZERO;
+
+   static TXCNSL
+     *csp = NULL;
+/*............................................................................*/
+/* prototypes: */
+
+   TXCNSL
+     *txcnsl( TXCNSL *csp );
+/*............................................................................*/
+# if (( PST_FLWPLT == 4 )\
+    ||( PST_FLWPLT == 5 )) 
+/*............................................................................*/
+# if PST_MESH == 1
+   static char 
+      meshfle[STS_SIZE] = "mesh";
+# endif /* PST_FLWPLT == 4 */
+/*............................................................................*/
+# if PST_WALLS == 1
+   static char 
+      ewllfle[STS_SIZE] = "ewalls";
+# elif PST_WALLS == 2
+   static char 
+      ewllfle[STS_SIZE] = "ewalls",
+      mwllfle[STS_SIZE] = "mwalls";
+# endif /* PST_WALLS == 2 */
+/*............................................................................*/
+# endif /* (( PST_FLWPLT == 4 )||( PST_FLWPLT == 5 )) */
+/*............................................................................*/
+   static FILE
+     *pltstr = NULL;
+
+   static char
+      pltfle[STS_SIZE] = {null};
+/*............................................................................*/
+# if PST_TMPPLT != 0
+
+   static FILE
+     *tmpfst = NULL,
+     *tmpstr = NULL;
+
+   static char 
+      tmpdsp[STS_SIZE] = {null},
+      tmpdat[STS_SIZE] = {null};
+
+   static short
+      lgttn = null;
+
+   static double
+      tnmin = ZERO,
+      tnmax = ZERO,
+      tnscl = ZERO; /* scaling factor */
+
+   static double
+      temp[NODES] = {ZERO}; /* nodal temperatures */
+# endif /* PST_TMPPLT != 0 */
+/*............................................................................*/
+# if PST_PRSPLT != 0
+
+   static FILE
+     *prsfst = NULL,
+     *prsstr = NULL;
+
+   static char 
+      prsdsp[STS_SIZE] = {null},
+      prsdat[STS_SIZE] = {null};
+
+   static short
+      lgtpr = null;
+
+   static double
+      prmin = ZERO,
+      prmax = ZERO,
+      prscl = ZERO;
+
+   static double
+      prss[NODES] = {ZERO}; /* nodal pressures */
+# endif /* PST_PRSPLT != 0 */
+/*............................................................................*/
+# if PST_DNSPLT != 0
+
+   static FILE
+     *dnsfst = NULL,
+     *dnsstr = NULL;
+
+   static char 
+      dnsdsp[STS_SIZE] = {null},
+      dnsdat[STS_SIZE] = {null};
+
+   static short
+      lgtds = null;
+
+   static double
+      dsmin = ZERO,
+      dsmax = ZERO,
+      dsscl = ZERO;
+
+   static double
+      dsty[NODES] = {ZERO}; /* nodal pressures */
+# endif /* PST_DNSPLT != 0 */
+/*............................................................................*/
+# if PST_FLWPLT != 0
+
+   static FILE
+     *flwfst = NULL,
+     *flwstr = NULL;
+
+   static double
+      uxmin = ZERO,
+      uymin = ZERO,
+      uzmin = ZERO,
+      uxmax = ZERO,
+      uymax = ZERO,
+      uzmax = ZERO;
+
+   static char 
+      flwdsp[STS_SIZE] = {null},
+      flwdat[STS_SIZE] = {null};
+
+   static double
+      flow[NODES][THREE] = {{ZERO}}; /* flow vectors */
+      
+   static double
+      norm1 = ZERO,
+      norm2 = ZERO,
+      scale1 = PST_SCALE1,
+      scale2 = PST_SCALE2;
+/*............................................................................*/
+# if PST_FLWPLT == 4 
+
+   static double
+     xx0 = ZERO,
+     xx1 = ZERO,
+     xx2 = ZERO,
+     yy0 = ZERO,
+     yy1 = ZERO,
+     arrlen = ZERO;
+
+   static COMPLEX
+      cc = {null},
+     *cpt = &cc;
+
+   COMPLEX 
+      *argc( COMPLEX *cpt, short nn );
+# endif /* PST_FLWPLT == 4 */
+/*............................................................................*/
+# endif /* PST_FLWPLT != 0 */
+/*----------------------------------------------------------------------------*/
+# else /* no plot enabled */
+   return NULL;
+# endif /* no plot enabled */
+/*............................................................................*/
+   state = stp;
+/*............................................................................*/
+/* initialize text console: */
+
+   csp = txcnsl( null );
+/*............................................................................*/
+/* Enter plot instructions: */
+
+   strcpy( csp->cnfrm, "Nothing done, do you really want to quit ?" );
+
+   strcpy( csp->cmmnt, "Plot instructions" );
+   strcpy( csp->envmt, "POSTPROCESSING" );
+   strcpy( csp->tasks, "Create plot files of ..." );
+   strcpy( csp->escpe, "End of program / escape:" );
+
+   csp->items = null;
+
+   tnopt = null;
+   propt = null;
+   dsopt = null;
+   flopt = null;
+   alopt = null;
+/*............................................................................*/
+# if PST_TMPPLT != 0
+   tnopt = ++( csp->items );
+   strcpy( csp->mline[ csp->items ], "* Fluid temperature" );
+# endif
+/*............................................................................*/
+# if PST_PRSPLT != 0
+   propt = ++( csp->items );
+   strcpy( csp->mline[ csp->items ], "* Fluid pressure" );
+# endif
+/*............................................................................*/
+# if PST_DNSPLT != 0
+   dsopt = ++( csp->items );
+   strcpy( csp->mline[ csp->items ], "* Fluid density" );
+# endif
+/*............................................................................*/
+# if PST_FLWPLT != 0
+   flopt = ++( csp->items );
+   strcpy( csp->mline[ csp->items ], "* Fluid velocity" );
+# endif
+/*............................................................................*/
+   alopt = ++( csp->items );
+   strcpy( csp->mline[ csp->items ], "* All the former" );
+   csp->dfopt = alopt; /* initial default menu option */
+/*............................................................................*/
+   csp = txcnsl( csp );    /* build the menu [ on text console ] */
+/*.......................*/
+   option = ( csp->option );
+
+   if( option == null )
+   {
+      PRBLDCLR( "\r" );
+      printf( " %*s", 78, "POSTPROCESSING" );
+      PRNORMAL( "" );
+
+      ( state->rtn ) = null;
+      return state;
+   }
+   else if ( option == tnopt )
+   {
+      tnopt = ONE;
+      propt = null;
+      dsopt = null;
+      flopt = null;
+   }
+   else if ( option == propt )
+   {
+      tnopt = null;
+      propt = ONE;
+      dsopt = null;
+      flopt = null;
+   }
+   else if ( option == dsopt )
+   {
+      tnopt = null;
+      propt = null;
+      dsopt = ONE;
+      flopt = null;
+   }
+   else if ( option == flopt )
+   {
+      tnopt = null;
+      propt = null;
+      dsopt = null;
+      flopt = ONE;
+   }
+   else if ( option == alopt )
+   {
+      tnopt = ONE;
+      propt = ONE;
+      dsopt = ONE;
+      flopt = ONE;
+   };
+
+   PRBLDCLR( "\r" );
+   printf( " %*s", 78, "ENTER" );
+   PRNORMAL( "\n" );
+/*............................................................................*/
+/* enter vertex point indices [ from file <<vtx.log>>, e.g.]: */
+/*............................................................................*/
+   strcpy( csp->rqstr, "Please enter vertex point indices file" );
+   strcpy( csp->rqfrm, "points" );
+   strcpy( csp->dfstr, "vtx.log" );
+/*............................................................................*/
+   csp = txcnsl( csp );    /*                                                 */
+/*.......................*/
+   if ( *( csp->instr ) == '0' )
+      return state;
+
+   strncpy ( vtxfle, ( csp->instr ), SHS_SIZE );
+/* strcpy( tmpdsp, "vtx.log" ); */
+   vtxstr = fopen( vtxfle, "r" );
+
+   while( vtxstr == NULL )
+   {
+      strcpy( csp->rqstr, "Please enter vertex point indices file" );
+      strcpy( csp->rqfrm, "points" );
+      strcpy( csp->dfstr, "vtx.log" );
+/*............................................................................*/
+      csp = txcnsl( csp );    /*                                           */
+/*.............................*/
+      if ( *( csp->instr ) == '0' )
+         return state;
+
+      strncpy ( vtxfle, csp->instr, SHS_SIZE );
+   /* strcpy( tmpdsp, "vtx.log" ); */
+      vtxstr = fopen( vtxfle, "r" );
+   }; /* end while ... */
+/*............................................................................*/
+/* enter vertex point coordinates [ from file <<crd.log>>, e.g.] : */
+/*............................................................................*/
+   strcpy( csp->rqstr, "Please enter vertex point coordinates file" );
+   strcpy( csp->rqfrm, "points" );
+   strcpy( csp->dfstr, "crd.log" );
+/*............................................................................*/
+   csp = txcnsl( csp );    /*                                                 */
+/*.......................*/
+   if ( *( csp->instr ) == '0' )
+      return state;
+
+   strncpy ( crdfle, csp->instr, SHS_SIZE );
+/* strcpy( tmpdsp, "crd.log" ); */
+   crdstr = fopen( crdfle, "r" );
+
+   while( crdstr == NULL )
+   {
+      strcpy( csp->rqstr, "Please enter vertex point coordinates file" );
+      strcpy( csp->rqfrm, "points" );
+      strcpy( csp->dfstr, "crd.log" );
+/*............................................................................*/
+      csp = txcnsl( csp );    /*                                           */
+/*.............................*/
+      if ( *( csp->instr ) == '0' )
+         return state;
+
+      strncpy ( crdfle, csp->instr, SHS_SIZE );
+   /* strcpy( tmpdsp, "crd.log" ); */
+      crdstr = fopen( crdfle, "r" );
+   }; /* end while ... */
+/*............................................................................*/
+# if PST_TMPPLT != 0
+/* enter fluid temperature field [ from file <<tmp.dsp>>, e.g.]: */
+
+   if ( null < tnopt )
+   {
+      strcpy( csp->rqstr, "Please enter temperature file name" );
+      strcpy( csp->rqfrm, "points" );
+      strcpy( csp->dfstr, "tmp.dsp" );
+/*............................................................................*/
+      csp = txcnsl( csp );    /*                                              */
+/*..........................*/
+      if ( *( csp->instr ) == '0' )
+         return state;
+
+      strncpy ( tmpdsp, csp->instr, STS_SIZE );
+   /* strcpy( tmpdsp, "tmp.dsp1" ); */
+      tmpfst = fopen( tmpdsp, "r" );
+
+      while( tmpfst == NULL )
+      {
+         strcpy( csp->rqstr, "Please enter temperature file name" );
+         strcpy( csp->rqfrm, "points" );
+         strcpy( csp->dfstr, "tmp.dsp" );
+/*............................................................................*/
+         csp = txcnsl( csp );    /*                                           */
+/*.............................*/
+         if ( *( csp->instr ) == '0' )
+            return state;
+
+         strncpy ( tmpdsp, csp->instr, STS_SIZE );
+      /* strcpy( tmpdsp, "tmp.dsp1" ); */
+         tmpfst = fopen( tmpdsp, "r" );
+      }; /* end while ... */
+   }; /* end if ... */
+# endif /* PST_TMPPLT != 0 */
+/*............................................................................*/
+# if PST_PRSPLT != 0
+/* enter fluid pressure field [ from file <<prs.dsp>>, e.g.]: */
+
+   if ( null < propt )
+   {
+      strcpy( csp->rqstr, "Please enter pressure file name" );
+      strcpy( csp->rqfrm, "points" );
+      strcpy( csp->dfstr, "prs.dsp" );
+/*............................................................................*/
+      csp = txcnsl( csp );    /*                                              */
+/*..........................*/
+      if ( *( csp->instr ) == '0' )
+         return state;
+
+      strncpy( prsdsp, csp->instr, STS_SIZE );
+   /* strcpy( prsdsp, "prs.dsp1" ); */
+      prsfst = fopen( prsdsp, "r" );
+
+      while ( prsfst == NULL )
+      {
+         strcpy( csp->rqstr, "Please enter pressure file name" );
+         strcpy( csp->rqfrm, "points" );
+         strcpy( csp->dfstr, "prs.dsp" );
+/*............................................................................*/
+         csp = txcnsl( csp );    /*                                           */
+/*.............................*/
+         if ( *( csp->instr ) == '0' )
+            return state;
+
+         strncpy ( prsdsp, csp->instr, STS_SIZE );
+      /* strcpy( prsdsp, "prs.dsp1" ); */
+         prsfst = fopen( prsdsp, "r" );
+      }; /* end while ... */
+   }; /* end if ... */
+# endif /* PST_PRSPLT != 0 */
+/*............................................................................*/
+# if PST_DNSPLT != 0
+/* enter fluid density field [ from file <<dns.dsp>>, e.g.]: */
+
+   if ( null < dsopt )
+   {
+      strcpy( csp->rqstr, "Please enter density file name" );
+      strcpy( csp->rqfrm, "points" );
+      strcpy( csp->dfstr, "dns.dsp" );
+/*............................................................................*/
+      csp = txcnsl( csp );    /*                                              */
+/*..........................*/
+      if ( *( csp->instr ) == '0' )
+         return state;
+
+      strncpy( dnsdsp, csp->instr, STS_SIZE );
+   /* strcpy( dnsdsp, "dns.dsp1" ); */
+      dnsfst = fopen( dnsdsp, "r" );
+
+      while ( dnsfst == NULL )
+      {
+         strcpy( csp->rqstr, "Please enter density file name" );
+         strcpy( csp->rqfrm, "points" );
+         strcpy( csp->dfstr, "dns.dsp" );
+/*............................................................................*/
+         csp = txcnsl( csp );    /*                                           */
+/*.............................*/
+         if ( *( csp->instr ) == '0' )
+            return state;
+
+         strncpy ( dnsdsp, csp->instr, STS_SIZE );
+      /* strcpy( dnsdsp, "dns.dsp1" ); */
+         dnsfst = fopen( dnsdsp, "r" );
+      }; /* end while ... */
+   }; /* end if ... */
+# endif /* PST_DNSPLT != 0 */
+/*............................................................................*/
+# if PST_FLWPLT != 0
+/* enter fluid velocity field [ from file <<flw.dsp>>, e.g.]: */
+
+   if ( null < flopt )
+   {
+      strcpy( csp->rqstr, "Please enter velocity file name" );
+      strcpy( csp->rqfrm, "points" );
+      strcpy( csp->dfstr, "flw.dsp" );
+/*............................................................................*/
+      csp = txcnsl( csp );    /*                                              */
+/*..........................*/
+      if ( *( csp->instr ) == '0' )
+         return state;
+      
+      strncpy( flwdsp, ( csp->instr ), STS_SIZE );
+   /* strcpy( flwdsp, "flw.dsp1" ); */
+      flwfst = fopen( flwdsp, "r" );
+
+      while ( flwfst == NULL )
+      {
+         strcpy( csp->rqstr, "Please enter velocity file name" );
+         strcpy( csp->rqfrm, "points" );
+         strcpy( csp->dfstr, "flw.dsp" );
+/*............................................................................*/
+         csp = txcnsl( csp );    /*                                           */
+/*.............................*/
+         if ( *( csp->instr ) == '0' )
+            return state;
+
+         strncpy( flwdsp, ( csp->instr ), STS_SIZE );
+     /*  strcpy( flwdsp, "flw.dsp1" ); */
+         flwfst = fopen( flwdsp, "r" );
+      }; /* end while ... */
+   }; /* end if ... */
+# endif /* PST_FLWPLT != 0 */
+/*............................................................................*/
+   nnf = null;
+/*............................................................................*/
+# if PST_TMPPLT != 0
+/* enter nodal fluid temperatures */
+
+   if ( null < tnopt )
+   {
+      tnmin = 1.0e+277;
+      tnmax = - tnmin;
+
+      ii = null;
+      while ( ii < PST_MAXSTRNGS )
+      {
+         fscanf( tmpfst, scformat, ptr );
+
+         if ( null == strncmp( ptr, "DANSE", FOUR ))
+         {
+            fscanf( tmpfst, scformat, ptr ); /* string "ITERATION" */
+            fscanf( tmpfst, scformat, ptr ); /* string iteration number */
+            fscanf( tmpfst, scformat, ptr ); /* string "|" */
+
+	    ll = null;
+            while (( ll < NODES )
+                 &&( null != strncmp( ptr, "DANSE", FOUR )))
+            {
+               fscanf( tmpfst, scformat, ptr ); /* cell index string */
+               nodes[ll] = strtol( ptr, endp, DEC );
+	    
+               fscanf( tmpfst, scformat, ptr ); /* string "|" */
+               fscanf( tmpfst, scformat, ptr ); 
+               xx = strtod( ptr, endp );
+               temp[ll] = xx;
+
+               if ( xx < tnmin )
+                  tnmin = xx;
+               if ( tnmax < xx )
+                  tnmax = xx;
+/*............................................................................*/
+# if PST_DISPL == 1
+               printf( "\n Temperature cell: %ld: % .5e", nodes[ll], temp[ll] );
+               printf( "\n Please acknowledge [ enter any character ]:",
+               scanf( "%s", ptr );
+# endif
+/*............................................................................*/
+               fscanf( tmpfst, scformat, ptr ); /* string "|" */
+               fscanf( tmpfst, scformat, ptr );
+    
+               ll++;
+            }; /* end while ( null == strncmp(*) */
+	    nnf = ll;
+            break;
+         }; /* end if null == strncmp */
+      }; /* end while ( ii < PST_MAXSTRNGS ) */
+
+      fclose( tmpfst );
+   }; /* end if tnopt == ONE */
+# endif /* PST_TMPPLT != 0 */
+/*............................................................................*/
+# if PST_PRSPLT != 0
+/* enter nodal fluid pressure */
+
+   if ( null < propt )
+   {
+      prmin = 1.0e+277;
+      prmax = - prmin;
+
+      ii = null;
+      while ( ii < PST_MAXSTRNGS )
+      {
+         fscanf( prsfst, scformat, ptr );
+
+         if ( null == strncmp( ptr, "DANSE", FOUR ))
+         {
+            fscanf( prsfst, scformat, ptr ); /* string "ITERATION" */
+            fscanf( prsfst, scformat, ptr ); /* string iteration number */
+            fscanf( prsfst, scformat, ptr ); /* string "|" */
+
+	    ll = null;
+            while (( ll < NODES )
+                 &&( null != strncmp( ptr, "DANSE", FOUR )))
+            {
+               fscanf( prsfst, scformat, ptr ); /* cell index string */
+               mm = strtol( ptr, endp, DEC );
+
+               if ( nnf == null )
+                  nodes[ll] = mm;
+               else if ( nodes[ll] != mm )
+               {
+	          printf( "\n\n Error: Pressure field %s inconsistent "
+	             "with temperature field !!!\n", prsdsp );
+                  exit( EXIT_FAILURE );
+               };
+	    
+               fscanf( prsfst, scformat, ptr ); /* string "|" */
+               fscanf( prsfst, scformat, ptr ); 
+               xx = strtod( ptr, endp );
+               prss[ll] = xx;
+
+               if ( xx < prmin )
+                  prmin = xx;
+               if ( prmax < xx )
+                  prmax = xx;
+/*............................................................................*/
+# if PST_DISPL == 1
+               printf( "\n Pressure cell: %ld: % .5e", nodes[ll], prss[ll] );
+               printf( "\n please acknowledge [ enter any character ]: " );
+               scanf( "%s", ptr );
+# endif
+/*............................................................................*/
+               fscanf( prsfst, scformat, ptr ); /* string "|" */
+               fscanf( prsfst, scformat, ptr );
+    
+               ll++;
+            }; /* end while ( null == strncmp(*) */
+
+            if ( nnf == null )
+	       nnf = ll;
+            else if ( nnf != ll )
+            {
+               printf( "\n\n Error: Pressure field %s inconsistent "
+	          "with temperature field !!!\n", prsdsp );
+               exit( EXIT_FAILURE );
+            };
+
+            break;
+         }; /* end if null == strncmp */
+      }; /* end while ( ii < PST_MAXSTRNGS ) */
+
+      fclose( prsfst );
+   }; /* end if propt == ONE */
+# endif /* PST_PRSPLT != 0 */
+/*............................................................................*/
+# if PST_DNSPLT != 0
+/* enter nodal fluid density */
+
+   if ( null < dsopt )
+   {
+      dsmin = 1.0e+277;
+      dsmax = - dsmin;
+
+      ii = null;
+      while ( ii < PST_MAXSTRNGS )
+      {
+         fscanf( dnsfst, scformat, ptr );
+
+         if ( null == strncmp( ptr, "DANSE", FOUR ))
+         {
+            fscanf( dnsfst, scformat, ptr ); /* string "ITERATION" */
+            fscanf( dnsfst, scformat, ptr ); /* string iteration number */
+            fscanf( dnsfst, scformat, ptr ); /* string "|" */
+
+	    ll = null;
+            while (( ll < NODES )
+                 &&( null != strncmp( ptr, "DANSE", FOUR )))
+            {
+               fscanf( dnsfst, scformat, ptr ); /* cell index string */
+               mm = strtol( ptr, endp, DEC );
+
+               if ( nnf == null )
+                  nodes[ll] = mm;
+               else if ( nodes[ll] != mm )
+               {
+                  printf( "\n\n Error: Density field %s inconsistent "
+                    "with temperature field !!!\n", dnsdsp );
+                  exit( EXIT_FAILURE );
+               };
+	    
+               fscanf( dnsfst, scformat, ptr ); /* string "|" */
+               fscanf( dnsfst, scformat, ptr ); 
+               xx = strtod( ptr, endp );
+               dsty[ll] = xx;
+
+               if ( xx < dsmin )
+                  dsmin = xx;
+               if ( dsmax < xx )
+                  dsmax = xx;
+/*............................................................................*/
+# if PST_DISPL == 1
+               printf( "\n Density cell: %ld: % .5e", nodes[ll], dsty[ll] );
+               printf( "\n please acknowledge [ enter any character ]: " );
+               scanf( "%s", ptr );
+# endif
+/*............................................................................*/
+               fscanf( dnsfst, scformat, ptr ); /* string "|" */
+               fscanf( dnsfst, scformat, ptr );
+    
+               ll++;
+            }; /* end while ( null == strncmp(*) */
+
+            if ( nnf == null )
+	       nnf = ll;
+            else if ( nnf != ll )
+            {
+               printf( "\n\n Error: Density field %s inconsistent "
+	          "with temperature field !!!\n", dnsdsp );
+               exit( EXIT_FAILURE );
+            };
+
+            break;
+         }; /* end if null == strncmp */
+      }; /* end while ( ii < PST_MAXSTRNGS ) */
+
+      fclose( dnsfst );
+   }; /* end if dsopt == ONE */
+# endif /* PST_DNSPLT != 0 */
+/*............................................................................*/
+# if PST_FLWPLT != 0
+/* enter fluid velocities */
+
+   if ( null < flopt )
+   {
+      uxmin = 1.0e+277;
+      uxmax = - uxmin;
+      uymin = 1.0e+277;
+      uymax = - uymin;
+      uzmin = 1.0e+277;
+      uzmax = - uzmin;
+
+      norm1 = ZERO;
+
+      ii = null;
+      while ( ii < PST_MAXSTRNGS )
+      {
+         fscanf( flwfst, scformat, ptr );
+
+         if ( null == strncmp( ptr, "DANSE", FOUR ))
+         {
+            fscanf( flwfst, scformat, ptr ); /* string "ITERATION" */
+            fscanf( flwfst, scformat, ptr ); /* string iteration number */
+            fscanf( flwfst, scformat, ptr ); /* string "|" */
+
+	    ll = null;
+            while (( ll < NODES )
+                 &&( null != strncmp( ptr, "DANSE", FOUR )))
+            {
+               fscanf( flwfst, scformat, ptr ); /* cell index string */
+               mm = strtol( ptr, endp, DEC );
+
+               if ( nnf == null )
+                  nodes[ll] = mm;
+               else if ( nodes[ll] != mm )
+               {
+	          printf( "\n\n Error: Velocity field %s inconsistent "
+	             "with temperature or pressure field !!!\n", flwdsp );
+                  exit( EXIT_FAILURE );
+               };
+	    
+               fscanf( flwfst, scformat, ptr ); /* string "|" */
+               fscanf( flwfst, scformat, ptr ); 
+               xx = strtod( ptr, endp );
+               flow[ll][0] = xx;
+
+               fscanf( flwfst, scformat, ptr ); /* string "|" */
+               fscanf( flwfst, scformat, ptr );
+               yy = strtod( ptr, endp );
+               flow[ll][1] = yy;
+
+               fscanf( flwfst, scformat, ptr ); /* string "|" */
+               fscanf( flwfst, scformat, ptr );
+               zz = strtod( ptr, endp );
+               flow[ll][2] = zz;
+
+               if ( xx < uxmin )
+                  uxmin = xx;
+               if ( uxmax < xx )
+                  uxmax = xx;
+
+               if ( yy < uymin )
+                  uymin = yy;
+               if ( uymax < yy )
+                  uymax = yy;
+
+               if ( zz < uzmin )
+                  uzmin = zz;
+               if ( uzmax < zz )
+                  uzmax = zz;
+
+               xx *= xx; 
+               yy *= yy; 
+               zz *= zz; 
+	       zz += ( xx+yy );
+
+	       if ( norm1 < zz )
+                  norm1 = zz;
+/*............................................................................*/
+# if PST_DISPL == 1
+               printf( "\n Fluid cell: %ld: ( % .5e | % .5e | % .5e )",
+                  nodes[ll], flow[ll][0], flow[ll][1], flow[ll][2] );
+               printf( "\n please acknowledge [ enter any character ]: " );
+               scanf( "%s", ptr );
+# endif
+/*............................................................................*/
+               fscanf( flwfst, scformat, ptr ); /* string "|" */
+               fscanf( flwfst, scformat, ptr );
+    
+               ll++;
+            }; /* end while ( null == strncmp(*) ... */
+
+            if ( nnf == null )
+	       nnf = ll;
+            else if ( nnf != ll )
+            {
+               printf( "\n\n Error: Velocity field %s inconsistent "
+	          "with temperature or pressure field !!!\n", flwdsp );
+               exit( EXIT_FAILURE );
+            };
+
+            break;
+         }; /* end if null == strncmp */
+      }; /* end while ( ii < PST_MAXSTRNGS ) */
+      norm1 = sqrt( norm1 );
+	
+      fclose( flwfst );
+   }; /* end if flopt == ONE */ 
+# endif /* PST_FLWPLT != 0 */
+/*............................................................................*/
+/* Enter vertex points [ mesh cell corners ]: */
+
+   ii = null; ptr[0] = null;
+   while ((( ii++ ) < PST_MAXSTRNGS )
+        &&( null != strncmp( ptr, "DANSE", FOUR )))
+   {
+      fscanf( vtxstr, scformat, ptr );
+   };
+
+   if ( ii >= PST_MAXSTRNGS )
+   {
+      printf( "\n Corrupted vertex point file %s !!!", vtxfle );
+      printf( "\n Please acknowledge [ enter any character ]: " );
+      scanf( "%s", ptr );
+   }
+   else
+   {
+      fscanf( vtxstr, scformat, ptr ); /* cell index [ ASCII string ] */
+      ll = null;
+      while ((( ll++ ) < NODES )
+           &&( null != strncmp( ptr, "DANSE", FOUR )))
+      {
+	 mm = strtol( ptr, endp, DEC );
+         if ( ll !=  mm )
+         {
+            printf( "\n Corrupted vertex point file %s: "
+               "label %ld != cell index %ld", vtxfle, ll, mm );
+            printf( "\n Please acknowledge [ enter any character ]: " );
+            scanf( "%s", ptr );
+         }
+/*............................................................................*/
+# if PST_DISPL == 1
+	 else
+            printf( "\n %7ld", ll );
+# endif
+/*............................................................................*/
+	 kk = null; do
+         {
+            fscanf( vtxstr, scformat, ptr ); /* vertex point index [ string ] */
+            points[ll][kk] = strtol( ptr, endp, DEC );
+/*............................................................................*/
+# if PST_DISPL == 1
+            printf( " %7ld", points[ll][kk] );
+# endif
+/*............................................................................*/
+         } while(( ++kk ) < EIGHT );
+         fscanf( vtxstr, scformat, ptr ); /* "DANSE" or cell index [ string ] */
+      }; /* end while ( null == strncmp(*) */
+   }; /* end if ( ii < PST_MAXSTRNGS ) */
+
+   fclose( vtxstr );
+/*............................................................................*/
+/* Enter vertex point coordinates: */
+
+   ii = null; ptr[0] = null;
+   while ((( ii++ ) < PST_MAXSTRNGS )
+        &&( null != strncmp( ptr, "DANSE", FOUR )))
+   {
+      fscanf( crdstr, scformat, ptr );
+   };
+
+   if ( ii >= PST_MAXSTRNGS )
+   {
+      printf( "\n Corrupted vertex point coordinates file %s !!! ", crdfle );
+      printf( "\n Please acknowledge [ enter any character ]: " );
+      scanf( "%s", ptr );
+   }
+   else
+   {
+      fscanf( crdstr, scformat, ptr ); /* point index [ ASCII string ] */
+      ll = null;
+      while ((( ll++ ) < CPNTS )
+           &&( null != strncmp( ptr, "DANSE", FOUR )))
+      {
+	 mm = strtol( ptr, endp, DEC );
+
+         if ( ll !=  mm )
+         {
+            printf( "\n Corrupted vertex point coordinates file %s: "
+               "label %ld != point index %ld", crdfle, ll, mm );
+            printf( "\n Please acknowledge [ enter any character ]: " );
+            scanf( "%s", ptr );
+         }
+/*............................................................................*/
+# if PST_DISPL == 1
+	 else
+            printf( "\n %7ld", ll );
+# endif
+/*............................................................................*/
+
+	 kk = null; do
+         {
+            fscanf( crdstr, scformat, ptr ); /* vertex point index [ string ] */
+            vcords[ll][kk] = strtod( ptr, endp );
+/*............................................................................*/
+# if PST_DISPL == 1
+            printf( " % .12e", vcords[ll][kk] );
+# endif
+/*............................................................................*/
+         } while(( ++kk ) < THREE );
+/* "DANSE" or next pnt index [string]: */
+         fscanf( crdstr, scformat, ptr ); 
+      }; /* end while ( null == strncmp(*) */
+   }; /* end if ( ii < PST_MAXSTRNGS ) */
+
+   fclose( crdstr );
+/*............................................................................*/
+/* compute node coordinates [ center of mesh ]: */
+
+   xmin = 1.0e+277;
+   xmax = - xmin;
+   ymin = 1.0e+277;
+   ymax = - ymin;
+   zmin = 1.0e+277;
+   zmax = - zmin;
+
+   ll = null;
+   while ( ll < nnf )
+   {
+      ii = null; do
+      {
+         ccords[ll][ii] = ZERO;
+         kk = null; do
+         {
+            ccords[ll][ii] += vcords[points[nodes[ll]][kk]][ii];
+         } while(( ++kk ) < EIGHT );
+         ccords[ll][ii] /= EIGHT;
+      } while(( ++ii ) < THREE );
+
+      if ( ccords[ll][0] < xmin )
+         xmin = ccords[ll][0];
+      if ( xmax < ccords[ll][0] )
+         xmax = ccords[ll][0];
+
+      if ( ccords[ll][1] < ymin )
+         ymin = ccords[ll][1];
+      if ( ymax < ccords[ll][1] )
+         ymax = ccords[ll][1];
+
+      if ( ccords[ll][2] < zmin )
+         zmin = ccords[ll][2];
+      if ( zmax < ccords[ll][2] )
+         zmax = ccords[ll][2];
+
+      ll++;
+   }; /* end while ( ll < ... */
+/*............................................................................*/
+/* Plot data file: */
+
+# if PST_TMPPLT != 0
+   strcpy( tmpdat, "tmp.dat" );
+   tmpstr = fopen( tmpdat, "w+" );
+# if PST_TMPPLT == 1
+   fprintf( tmpstr, "#[ Fluid temperature 2D plot data file: %s ]\n", tmpdat );
+# elif PST_TMPPLT == 2
+   fprintf( tmpstr, "#[ Fluid temperature 2D plot data file: %s ]\n", tmpdat );
+# elif PST_TMPPLT == 3
+   fprintf( tmpstr, "#[ Fluid temperature 2D plot data file: %s ]\n", tmpdat );
+# elif PST_TMPPLT == 4
+   fprintf( tmpstr, "#[ Fluid temperature 3D plot data file: %s ]\n", tmpdat );
+# elif PST_TMPPLT == 5
+   fprintf( tmpstr, "#[ Fluid temperature 3D plot data file: %s ]\n", tmpdat );
+# endif /* PST_TMPPLT == ... */
+# endif /* PST_TMPPLT != 0 */
+
+# if PST_PRSPLT != 0
+   strcpy( prsdat, "prs.dat" );
+   prsstr = fopen( prsdat, "w+" );
+# if PST_PRSPLT == 1
+   fprintf( prsstr, "#[ Fluid pressure 2D plot data file: %s ]\n", prsdat );
+# elif PST_PRSPLT == 2
+   fprintf( prsstr, "#[ Fluid pressure 2D plot data file: %s ]\n", prsdat );
+# elif PST_PRSPLT == 3
+   fprintf( prsstr, "#[ Fluid pressure 3D plot data file: %s ]\n", prsdat );
+# elif PST_PRSPLT == 4
+   fprintf( prsstr, "#[ Fluid pressure 2D plot data file: %s ]\n", prsdat );
+# elif PST_PRSPLT == 5
+   fprintf( prsstr, "#[ Fluid pressure 3D plot data file: %s ]\n", prsdat );
+# endif /* PST_PRSPLT == ... */
+# endif /* PST_PRSPLT != 0 */
+
+# if PST_DNSPLT != 0
+   strcpy( dnsdat, "dns.dat" );
+   dnsstr = fopen( dnsdat, "w+" );
+# if PST_DNSPLT == 1
+   fprintf( dnsstr, "#[ Fluid density 2D plot data file: %s ]\n", dnsdat );
+# elif PST_DNSPLT == 2
+   fprintf( dnsstr, "#[ Fluid density 2D plot data file: %s ]\n", dnsdat );
+# elif PST_DNSPLT == 3
+   fprintf( dnsstr, "#[ Fluid density 3D plot data file: %s ]\n", dnsdat );
+# elif PST_DNSPLT == 4
+   fprintf( dnsstr, "#[ Fluid density 2D plot data file: %s ]\n", dnsdat );
+# elif PST_DNSPLT == 5
+   fprintf( dnsstr, "#[ Fluid density 3D plot data file: %s ]\n", dnsdat );
+# endif /* PST_DNSPLT == ... */
+# endif /* PST_DNSPLT != 0 */
+
+# if PST_FLWPLT != 0 
+   strcpy( flwdat, "flw.dat" );
+   flwstr = fopen( flwdat, "w+" );
+# if PST_FLWPLT == 1 
+   fprintf( flwstr, "#[ Fluid velocity 2D plot data file: %s ]\n", flwdat );
+# elif PST_FLWPLT == 2 
+   fprintf( flwstr, "#[ Fluid velocity 2D plot data file: %s ]\n", flwdat );
+# elif PST_FLWPLT == 3 
+   fprintf( flwstr, "#[ Fluid velocity 3D plot data file: %s ]\n", flwdat );
+# elif PST_FLWPLT == 4 
+   fprintf( flwstr, "#[ Fluid velocity 2D plot data file: %s ]\n", flwdat );
+# elif PST_FLWPLT == 5
+   fprintf( flwstr, "#[ 3D gnuplot data file: %s ]\n", flwdat );
+# endif /* PST_FLWPLT == ... */
+# endif /* PST_FLWPLT != 0 */
+/*............................................................................*/
+# if PST_TMPPLT != 0 
+/* store temperature field: */
+
+   ss = fabs( tnmax );
+
+   if ( ss < fabs( tnmin ))
+      ss = fabs( tnmin );
+
+   if ( ZERO < ss ) /* floor := largest integer not geater than argument */
+      lgttn = floor( log10( ss ));
+   else
+      lgttn = ZERO;
+
+   if ( fabs( lgttn ) < PST_UNSCALED )
+   {
+      tnscl = 1.;
+      lgttn = ZERO;
+   }
+   else
+      tnscl = pow( 10., -lgttn ); /* = 10^(-lgttn ) = exp( -lgttn*log( 10.)) */
+
+   tnmin *= tnscl;
+   tnmax *= tnscl;
+
+   ll = null;
+   while ( ll < nnf )
+   {
+/*............................................................................*/
+# if PST_DISPL == 1
+      printf( "\n %7ld % .3e % .3e % .3e ",
+         nodes[ll], ccords[ll][0], ccords[ll][1], ccords[ll][2] );
+      printf( "% .3e ", ( tnscl*temp[ll] ));
+# endif
+/*............................................................................*/
+# if PST_TMPPLT == 1
+/* [ 2D color plot ] */
+
+      fprintf( tmpstr,"% .5e ", ccords[ll][0] );
+      fprintf( tmpstr,"% .5e ", ccords[ll][1] );
+      fprintf( tmpstr,"% .5e\n", ( tnscl*temp[ll] ));
+
+# elif PST_TMPPLT == 2
+/* [ 3D color plot ] */
+
+      fprintf( tmpstr,"% .5e ", ccords[ll][0] );
+      fprintf( tmpstr,"% .5e ", ccords[ll][1] );
+      fprintf( tmpstr,"% .5e\n", ( tnscl*temp[ll] ));
+
+# elif PST_TMPPLT == 3
+/* [ 3D contour plot ] */
+
+      fprintf( tmpstr,"% .5e ", ccords[ll][0] );
+      fprintf( tmpstr,"% .5e ", ccords[ll][1] );
+      fprintf( tmpstr,"% .5e\n", ( tnscl*temp[ll] ));
+
+# elif PST_TMPPLT == 4
+/* [ 2D plot ] */
+
+      fprintf( tmpstr,"% .5e ", ccords[ll][0] );
+      fprintf( tmpstr,"% .5e ", ccords[ll][1] );
+      fprintf( tmpstr,"% .5e\n", ( tnscl*temp[ll] ));
+
+# elif PST_TMPPLT == 5 
+/* [ 3D plot ] */
+
+      fprintf( tmpstr,"% .5e ", ccords[ll][0] );
+      fprintf( tmpstr,"% .5e ", ccords[ll][1] );
+      fprintf( tmpstr,"% .5e ", ccords[ll][2] );
+      fprintf( tmpstr,"% .5e\n", ( tnscl*temp[ll] ));
+
+# endif
+      ll++;
+   }; /* end while ( ll < ... */
+
+   fclose( tmpstr );
+
+# endif /* PST_TMPPLT != 0 */
+/*............................................................................*/
+# if PST_PRSPLT != 0 
+/* store pressure field: */
+   
+   ss = fabs( prmax );
+
+   if ( ss < fabs( prmin ))
+      ss = fabs( prmin );
+
+   if ( ZERO < ss ) /* floor := largest integer not geater than argument */
+      lgtpr = floor( log10( ss ));
+   else
+      lgtpr = ZERO;
+
+   if ( fabs( lgtpr ) < PST_UNSCALED )
+   {
+      prscl = 1.;
+      lgtpr = ZERO;
+   }
+   else
+      prscl = pow( 10., -lgtpr ); /* = 10^(-lgtpr ) = exp( -lgtpr*log( 10.)) */
+
+   prmin *= prscl;
+   prmax *= prscl;
+
+   ll = PST_PRSINIT;
+   while ( ll < nnf )
+   {
+/*............................................................................*/
+# if PST_DISPL == 1
+      printf( "\n %7ld % .3e % .3e % .3e ",
+         nodes[ll], ccords[ll][0], ccords[ll][1], ccords[ll][2] );
+      printf( "% .3e ", ( prscl*prss[ll] ));
+# endif
+/*............................................................................*/
+# if PST_PRSPLT == 1 
+/* [ 2D color plot ] */
+
+      fprintf( prsstr,"% .5e ", ccords[ll][0] );
+      fprintf( prsstr,"% .5e ", ccords[ll][1] );
+      fprintf( prsstr,"% .5e\n", ( prscl*prss[ll] ));
+
+# elif PST_PRSPLT == 2 
+/* [ 3D color plot ] */
+
+      fprintf( prsstr,"% .5e ", ccords[ll][0] );
+      fprintf( prsstr,"% .5e ", ccords[ll][1] );
+      fprintf( prsstr,"% .5e\n", ( prscl*prss[ll] ));
+
+# elif PST_PRSPLT == 3 
+/* [ 2D contour plot ] */
+
+      fprintf( prsstr,"% .5e ", ccords[ll][0] );
+      fprintf( prsstr,"% .5e ", ccords[ll][1] );
+      fprintf( prsstr,"% .5e\n", ( prscl*prss[ll] ));
+
+# elif PST_PRSPLT == 4 
+/* [ 3D contour plot ] */
+
+      fprintf( prsstr,"% .5e ", ccords[ll][0] );
+      fprintf( prsstr,"% .5e ", ccords[ll][1] );
+      fprintf( prsstr,"% .5e\n", ( prscl*prss[ll] ));
+
+# elif PST_PRSPLT == 5
+/* [ 3D plot ] */
+
+      fprintf( prsstr,"% .5e ", ccords[ll][0] );
+      fprintf( prsstr,"% .5e ", ccords[ll][1] );
+      fprintf( prsstr,"% .5e ", ccords[ll][2] );
+      fprintf( prsstr,"% .5e\n", ( prscl*prss[ll] ));
+# endif
+      ll++;
+   }; /* end while ( ll < ... */
+
+   fclose( prsstr );
+
+# endif /* PST_PRSPLT != 0 */
+/*............................................................................*/
+# if PST_DNSPLT != 0 
+/* store density field: */
+   
+   ss = fabs( dsmax );
+
+   if ( ss < fabs( dsmin ))
+      ss = fabs( dsmin );
+
+   if ( ZERO < ss ) /* floor := largest integer not geater than argument */
+      lgtds = floor( log10( ss ));
+   else
+      lgtds = ZERO;
+
+   if ( fabs( lgtds ) < PST_UNSCALED )
+   {
+      dsscl = 1.;
+      lgtds = ZERO;
+   }
+   else
+      dsscl = pow( 10., -lgtds ); /* = 10^(-lgtds ) = exp( -lgtds*log( 10.)) */
+
+   dsmin *= dsscl;
+   dsmax *= dsscl;
+
+   ll = PST_DNSINIT;
+   while ( ll < nnf )
+   {
+/*............................................................................*/
+# if PST_DISPL == 1
+      printf( "\n %7ld % .3e % .3e % .3e ",
+         nodes[ll], ccords[ll][0], ccords[ll][1], ccords[ll][2] );
+      printf( "% .3e ", ( dsscl*dsty[ll] ));
+# endif
+/*............................................................................*/
+# if PST_DNSPLT == 1 
+/* [ 2D color plot ] */
+
+      fprintf( dnsstr,"% .5e ", ccords[ll][0] );
+      fprintf( dnsstr,"% .5e ", ccords[ll][1] );
+      fprintf( dnsstr,"% .5e\n", ( dsscl*dsty[ll] ));
+
+# elif PST_DNSPLT == 2 
+/* [ 3D color plot ] */
+
+      fprintf( dnsstr,"% .5e ", ccords[ll][0] );
+      fprintf( dnsstr,"% .5e ", ccords[ll][1] );
+      fprintf( dnsstr,"% .5e\n", ( dsscl*dsty[ll] ));
+
+# elif PST_DNSPLT == 3 
+/* [ 2D contour plot ] */
+
+      fprintf( dnsstr,"% .5e ", ccords[ll][0] );
+      fprintf( dnsstr,"% .5e ", ccords[ll][1] );
+      fprintf( dnsstr,"% .5e\n", ( dsscl*dsty[ll] ));
+
+# elif PST_DNSPLT == 4 
+/* [ 3D contour plot ] */
+
+      fprintf( dnsstr,"% .5e ", ccords[ll][0] );
+      fprintf( dnsstr,"% .5e ", ccords[ll][1] );
+      fprintf( dnsstr,"% .5e\n", ( dsscl*dsty[ll] ));
+
+# elif PST_DNSPLT == 5
+/* [ 3D plot ] */
+
+      fprintf( dnsstr,"% .5e ", ccords[ll][0] );
+      fprintf( dnsstr,"% .5e ", ccords[ll][1] );
+      fprintf( dnsstr,"% .5e ", ccords[ll][2] );
+      fprintf( dnsstr,"% .5e\n", ( dsscl*dsty[ll] ));
+# endif
+      ll++;
+   }; /* end while ( ll < ... */
+
+   fclose( dnsstr );
+
+# endif /* PST_DNSPLT != 0 */
+/*............................................................................*/
+# if PST_FLWPLT != 0 
+/* store velocity field: */
+   
+   norm2 = ( xmax-xmin )*( xmax-xmin );
+   norm2 += (( ymax-ymin )*( ymax-ymin ));
+   norm2 = sqrt( norm2 );
+
+/*............................................................................*/
+# ifdef PST_SCLFLW
+   if ( 0. < PST_SCLFLW )
+      scale1 = PST_SCALE1*( norm2/PST_SCLFLW );
+   else
+      scale1 = PST_SCALE1*( norm2/norm1 );
+# else
+      scale1 = PST_SCALE1*( norm2/norm1 );
+# endif
+/*............................................................................*/
+   scale2 = PST_SCALE2;
+/*............................................................................*/
+   ll = null;
+   while ( ll < nnf )
+   {
+/*............................................................................*/
+# if PST_DISPL == 1
+      printf( "\n %7ld % .3e % .3e % .3e ",
+         nodes[ll], ccords[ll][0], ccords[ll][1], ccords[ll][2] );
+      printf( "% .3e % .3e % .3e ",
+         flow[ll][0], flow[ll][1], flow[ll][2] );
+# endif
+/*............................................................................*/
+# if PST_FLWPLT == 2 
+/* [ 2D plot ] */
+
+      fprintf( flwstr,"% .5e ", ccords[ll][0] );
+      fprintf( flwstr,"% .5e\n", ccords[ll][1] );
+
+      fprintf( flwstr,"% .5e ", flow[ll][0] );
+      fprintf( flwstr,"% .5e\n", flow[ll][1] );
+
+# elif PST_FLWPLT == 3 
+/* [ 3D plot ] */
+
+      fprintf( flwstr,"% .5e ", ccords[ll][0] );
+      fprintf( flwstr,"% .5e ", ccords[ll][1] );
+      fprintf( flwstr,"% .5e ", ccords[ll][2] );
+
+      fprintf( flwstr,"% .5e ", flow[ll][0] );
+      fprintf( flwstr,"% .5e ", flow[ll][1] );
+      fprintf( flwstr,"% .5e\n", flow[ll][2] );
+
+# elif PST_FLWPLT == 4 
+/* [ 2D gnuplot ] */
+
+      xx = ccords[ll][0];
+      yy = ccords[ll][1];
+
+      fprintf( flwstr,"% .5e ", xx );
+      fprintf( flwstr,"% .5e\n", yy );
+
+      xx += ( scale1*flow[ll][0] );
+      yy += ( scale1*flow[ll][1] );
+
+      fprintf( flwstr,"% .5e ", xx );
+      fprintf( flwstr,"% .5e\n", yy );
+
+      ( cpt->r ) = flow[ll][0];
+      ( cpt->i ) = flow[ll][1];
+/*............................................................................*/
+      cpt = argc( cpt, null );
+/*............................................................................*/
+      zz = ( cpt->arg );
+
+      zz += ( 5.*PI/6. );
+      xx += ( scale2*norm2*cos( zz ));
+      yy += ( scale2*norm2*sin( zz ));
+
+      fprintf( flwstr,"% .5e ", xx );
+      fprintf( flwstr,"% .5e\n", yy );
+
+      zz += ( 2.*PI/3. );
+      xx += ( scale2*norm2*cos( zz ));
+      yy += ( scale2*norm2*sin( zz ));
+
+      fprintf( flwstr,"% .5e ", xx );
+      fprintf( flwstr,"% .5e\n", yy );
+
+      zz += ( 2.*PI/3. );
+      xx += ( scale2*norm2*cos( zz ));
+      yy += ( scale2*norm2*sin( zz ));
+
+      fprintf( flwstr,"% .5e ", xx );
+      fprintf( flwstr,"% .5e\n\n", yy );
+
+# elif PST_FLWPLT == 5 
+/* [ 3D gnuplot ] */
+
+      fprintf( flwstr,"% .5e ", ccords[ll][0] );
+      fprintf( flwstr,"% .5e ", ccords[ll][1] );
+      fprintf( flwstr,"% .5e\n", ccords[ll][2] );
+
+      fprintf( flwstr,"% .5e ", ( ccords[ll][0] + scale1*flow[ll][0] ));
+      fprintf( flwstr,"% .5e ", ( ccords[ll][1] + scale1*flow[ll][1] ));
+      fprintf( flwstr,"% .5e\n\n", ( ccords[ll][2] + scale1*flow[ll][2] ));
+# endif
+      ll++;
+   }; /* end while ( ll < ... */
+
+   fclose( flwstr );
+
+# endif /* PST_FLWPLT != 0 */
+/*............................................................................*/
+# if PST_TMPPLT != 0
+/* gnuplot configurations for fluid temperature field: */
+
+   xmid = .5*( xmax + xmin );
+   ymid = .5*( ymax + ymin );
+   zmid = .5*( tnmax + tnmin );
+
+   xx = ( xmax - xmin );
+   yy = ( ymax - ymin );
+   zz = ( tnmax - tnmin );
+/*............................................................................*/
+# if PST_ISOSCLE == 1
+   if ( xx < yy )
+      xx = yy;
+   if ( yy < xx )
+      yy = xx;
+# endif
+/*............................................................................*/
+   xx *= .550;
+   yy *= .550;
+   zz *= .510;
+/*............................................................................*/
+# if PST_TMPPLT == 1 /* 2D RGB color plot; pm3d type */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.tmp" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgttn == null )
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid temperature "
+         "[ Celsius ]'\n", stp->name );
+      fprintf( pltstr, "#set label 'Celsius' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid temperature "
+         "[ 1.E%+.2d Celsius ]'\n", stp->name, lgttn );
+      fprintf( pltstr, "#set label '1.E%+.2d Celsius' at %.5e, %.5e, %.5e\n",
+         lgttn, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+   
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+
+/* number of color steps */
+
+   fprintf( pltstr, "set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view ,,,1.3\n" );
+   fprintf( pltstr, "set view map\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with pm3d", 92, tmpdat ); /* 92 = ASCI char '\'*/
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_TMPPLT == 2 /* 3D colour plot */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.tmp" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgttn == null )
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid temperature "
+         "[ Celsius ]'\n", stp->name );
+      fprintf( pltstr, "set label 'Celsius' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid temperature "
+         "[ 1.E%+.2d Celsius ]'\n", stp->name, lgttn );
+      fprintf( pltstr, "set label '1.E%+.2d Celsius' at %.5e, %.5e, %.5e\n",
+         lgttn, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+   
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+
+/* number of color steps */
+
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view map\n" );
+   fprintf( pltstr, "set view ,,,1.3\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "unset key\n");
+   fprintf( pltstr, "set style data pm3d\n");
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s'", 92, tmpdat ); /* 92 = ASCI char '\'*/
+   fprintf( pltstr, "\nset key");
+   fprintf( pltstr, "\nset style data lines");
+   fprintf( pltstr, "\nsplot" );
+   fprintf( pltstr, "%c\n'%s'", 92, tmpdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s'", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_TMPPLT == 3 /* 2D color plot with contour lines */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.tmp" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgttn == null )
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid temperature "
+         "[ Celsius ]'\n", stp->name );
+      fprintf( pltstr, "#set label 'Celsius' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid temperature "
+         "[ 1.E%+.2d Celsius ]'\n", stp->name, lgttn );
+      fprintf( pltstr, "#set label '1.E%+.2d Celsius' at %.5e, %.5e, %.5e\n",
+         lgttn, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set contour base\n" );
+   fprintf( pltstr, "set cntrparam linear\n" );
+   fprintf( pltstr, "set cntrparam levels 10\n" );
+
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+
+/* number of color steps */
+
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view ,,,1.3\n" );
+   fprintf( pltstr, "set view map\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with points", 92, tmpdat );/* 92 = ASCI char '\'*/
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_TMPPLT == 4 /* 3D color plot with contour lines */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.tmp" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgttn == null )
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid temperature "
+         "[ Celsius ]'\n", stp->name );
+      fprintf( pltstr, "set label 'Celsius' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid temperature "
+         "[ 1.E%+.2d Celsius ]'\n", stp->name, lgttn );
+      fprintf( pltstr, "set label '1.E%+.2d Celsius' at %.5e, %.5e, %.5e\n",
+         lgttn, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+   
+   fprintf( pltstr, "set contour both\n" );
+   fprintf( pltstr, "set cntrparam linear\n" );
+   fprintf( pltstr, "set cntrparam levels 10\n" );
+
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+
+/* number of color steps */
+
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view map\n" );
+   fprintf( pltstr, "set view ,,,1.3\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "unset key\n");
+   fprintf( pltstr, "set style data pm3d\n");
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s'", 92, tmpdat );/* 92 = ASCI char '\'*/
+   fprintf( pltstr, "\nset key");
+   fprintf( pltstr, "\nset style data lines");
+   fprintf( pltstr, "\nsplot" );
+   fprintf( pltstr, "%c\n'%s'", 92, tmpdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s'", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1. )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# endif /* PST_TMPPLT == 4 */
+/*............................................................................*/
+# endif /* PST_TMPPLT != 0 */
+/*............................................................................*/
+# if PST_PRSPLT != 0
+/* gnuplot configurations for fluid pressure field */
+
+   xmid = .5*( xmax + xmin );
+   ymid = .5*( ymax + ymin );
+   zmid = .5*( prmax + prmin );
+
+   xx = ( xmax - xmin );
+   yy = ( ymax - ymin );
+   zz = ( prmax - prmin );
+/*............................................................................*/
+# if PST_ISOSCLE == 1
+   if ( xx < yy )
+      xx = yy;
+   if ( yy < xx )
+      yy = xx;
+# endif
+/*............................................................................*/
+   xx *= .550;
+   yy *= .550;
+   zz *= .510;
+/*............................................................................*/
+# if PST_PRSPLT == 1 /* 2D RGB color plot; pm3d type */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.prs" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtpr == null )
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid pressure fluctuations "
+         "[ Pascal ]'\n", stp->name );
+      fprintf( pltstr, "#set label 'Pascal' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid pressure fluctuations "
+         "[ 1.E%+.2d Pascal ]'\n", stp->name, lgtpr );
+      fprintf( pltstr, "#set label '1.E%+.2d Pascal' at %.5e, %.5e, %.5e\n",
+         lgtpr, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+   
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+
+/* number of color steps */
+
+   fprintf( pltstr, "#set palette defined\n" );
+   fprintf( pltstr, "set palette maxcolors 30\n" );
+
+   fprintf( pltstr, "#set view ,,,1.3\n" );
+   fprintf( pltstr, "set view map\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with pm3d", 92, prsdat ); /* 92 = ASCI char '\'*/
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_PRSPLT == 2 /* 3D color plot */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.prs" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtpr == null )
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid pressure fluctuations "
+         "[ Pascal ]'\n", stp->name );
+      fprintf( pltstr, "set label 'Pascal' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid pressure fluctuations "
+         "[ 1.E%+.2d Pascal ]'\n", stp->name, lgtpr );
+      fprintf( pltstr, "set label '1.E%+.2d Pascal' at %.5e, %.5e, %.5e\n",
+         lgtpr, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+   
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+   
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view map\n" );
+   fprintf( pltstr, "set view ,,,1.3\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "unset key\n");
+   fprintf( pltstr, "set style data pm3d\n");
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s'", 92, prsdat );/* 92 = ASCI char '\'*/
+   fprintf( pltstr, "\nset key");
+   fprintf( pltstr, "\nset style data lines");
+   fprintf( pltstr, "\nsplot" );
+   fprintf( pltstr, "%c\n'%s'", 92, prsdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s'", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_PRSPLT == 3 /* 2D color plot with contour lines */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.prs" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtpr == null )
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid pressure fluctuations "
+         "[ Pascal ]'\n", stp->name );
+      fprintf( pltstr, "#set label 'Pascal' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid pressure fluctuations "
+         "[ 1.E%+.2d Pascal ]'\n", stp->name, lgtpr );
+      fprintf( pltstr, "#set label '1.E%+.2d Pascal' at %.5e, %.5e, %.5e\n",
+         lgtpr, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set contour base\n" );
+   fprintf( pltstr, "set cntrparam linear\n" );
+   fprintf( pltstr, "set cntrparam levels 10\n" );
+
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view ,,,1.3\n" );
+   fprintf( pltstr, "set view map\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with points", 92, prsdat );/* 92 = ASCI char '\'*/
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_PRSPLT == 4 /* 3D color plot with contour lines */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.prs" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtpr == null )
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid pressure fluctuations "
+         "[ Pascal ]'\n", stp->name );
+      fprintf( pltstr, "set label 'Pascal' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid pressure fluctuations "
+         "[ 1.E%+.2d Pascal ]'\n", stp->name, lgtpr );
+      fprintf( pltstr, "set label '1.E%+.2d Pascal' at %.5e, %.5e, %.5e\n",
+         lgtpr, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set contour both\n" );
+   fprintf( pltstr, "set cntrparam linear\n" );
+   fprintf( pltstr, "set cntrparam levels 10\n" );
+
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view map\n" );
+   fprintf( pltstr, "set view ,,,1.3\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "unset key\n");
+   fprintf( pltstr, "set style data pm3d\n");
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s'", 92, prsdat );/* 92 = ASCI char '\'*/
+   fprintf( pltstr, "\nset key");
+   fprintf( pltstr, "\nset style data lines");
+   fprintf( pltstr, "\nsplot" );
+   fprintf( pltstr, "%c\n'%s'", 92, prsdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s'", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# endif /* PST_PRSPLT == 4 */
+/*............................................................................*/
+# endif /* PST_PRSPLT != 0 */
+/*............................................................................*/
+# if PST_DNSPLT != 0
+/* gnuplot configurations for fluid density field */
+
+   xmid = .5*( xmax + xmin );
+   ymid = .5*( ymax + ymin );
+   zmid = .5*( dsmax + dsmin );
+
+   xx = ( xmax - xmin );
+   yy = ( ymax - ymin );
+   zz = ( dsmax - dsmin );
+/*............................................................................*/
+# if PST_ISOSCLE == 1
+   if ( xx < yy )
+      xx = yy;
+   if ( yy < xx )
+      yy = xx;
+# endif
+/*............................................................................*/
+   xx *= .550;
+   yy *= .550;
+   zz *= .510;
+/*............................................................................*/
+# if PST_DNSPLT == 1 /* 2D RGB color plot; pm3d type */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.dns" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtds == null )
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid density fluctuations "
+         "[ Kg/m^3 ]'\n", stp->name );
+      fprintf( pltstr, "#set label 'Kg/m^3' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid density fluctuations "
+         "[ 1.E%+.2d Kg/m^3 ]'\n", stp->name, lgtds );
+      fprintf( pltstr, "#set label '1.E%+.2d Kg/m^3' at %.5e, %.5e, %.5e\n",
+         lgtds, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+   
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view ,,,1.3\n" );
+   fprintf( pltstr, "set view map\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with pm3d", 92, dnsdat ); /* 92 = ASCI char '\'*/
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_DNSPLT == 2 /* 3D color plot */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.dns" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtds == null )
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid density fluctuations "
+         "[ Kg/m^3 ]'\n", stp->name );
+      fprintf( pltstr, "set label 'Kg/m^3' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid density fluctuations "
+         "[ 1.E%+.2d Kg/m^3 ]'\n", stp->name, lgtds );
+      fprintf( pltstr, "set label '1.E%+.2d Kg/m^3' at %.5e, %.5e, %.5e\n",
+         lgtds, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+   
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+   
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view map\n" );
+   fprintf( pltstr, "set view ,,,1.3\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "unset key\n");
+   fprintf( pltstr, "set style data pm3d\n");
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s'", 92, dnsdat );/* 92 = ASCI char '\'*/
+   fprintf( pltstr, "\nset key");
+   fprintf( pltstr, "\nset style data lines");
+   fprintf( pltstr, "\nsplot" );
+   fprintf( pltstr, "%c\n'%s'", 92, dnsdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s'", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_DNSPLT == 3 /* 2D color plot with contour lines */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.dns" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtds == null )
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid density fluctuations "
+         "[ Kg/m^3 ]'\n", stp->name );
+      fprintf( pltstr, "#set label 'Kg/m^3' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 2D plot of fluid density fluctuations "
+         "[ 1.E%+.2d Kg/m^3 ]'\n", stp->name, lgtds );
+      fprintf( pltstr, "#set label '1.E%+.2d Kg/m^3' at %.5e, %.5e, %.5e\n",
+         lgtds, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set contour base\n" );
+   fprintf( pltstr, "set cntrparam linear\n" );
+   fprintf( pltstr, "set cntrparam levels 10\n" );
+
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view ,,,1.3\n" );
+   fprintf( pltstr, "set view map\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with points", 92, dnsdat );/* 92 = ASCI char '\'*/
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_DNSPLT == 4 /* 3D color plot with contour lines */
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.dns" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+
+   if ( lgtds == null )
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid density fluctuations "
+         "[ Kg/m^3 ]'\n", stp->name );
+      fprintf( pltstr, "set label 'Kg/m^3' at %.5e, %.5e, %.5e\n",
+         ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   }
+   else
+   {
+      fprintf( pltstr, "set title '%s; 3D plot of fluid density fluctuations "
+         "[ 1.E%+.2d Kg/m^3 ]'\n", stp->name, lgtds );
+      fprintf( pltstr, "set label '1.E%+.2d Kg/m^3' at %.5e, %.5e, %.5e\n",
+         lgtds, ( xmid-(.85*xx )), ( ymid-yy), ( zmid+zz ));
+   };
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set cbrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+
+   fprintf( pltstr, "set dgrid3d 50, 20, 8\n" );
+   fprintf( pltstr, "set grid\n" );
+
+   fprintf( pltstr, "set contour both\n" );
+   fprintf( pltstr, "set cntrparam linear\n" );
+   fprintf( pltstr, "set cntrparam levels 10\n" );
+
+   fprintf( pltstr, "set pm3d\n" );
+   fprintf( pltstr, "set pm3d map\n" );
+
+   fprintf( pltstr, "set palette\n" );
+   fprintf( pltstr, "set palette color\n" );
+   fprintf( pltstr, "set palette model RGB\n" );
+/* number of color steps */
+   fprintf( pltstr, "#set palette maxcolors 30\n" );
+   fprintf( pltstr, "#set palette defined\n" );
+
+   fprintf( pltstr, "#set view map\n" );
+   fprintf( pltstr, "set view ,,,1.3\n" );
+   fprintf( pltstr, "set size square\n" );
+
+   fprintf( pltstr, "unset key\n");
+   fprintf( pltstr, "set style data pm3d\n");
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s'", 92, dnsdat );/* 92 = ASCI char '\'*/
+   fprintf( pltstr, "\nset key");
+   fprintf( pltstr, "\nset style data lines");
+   fprintf( pltstr, "\nsplot" );
+   fprintf( pltstr, "%c\n'%s'", 92, dnsdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+/*
+   fprintf( pltstr, ",%c\n'%s' with lines", 92, meshfle );
+*/
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+*/
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+/*
+   fprintf( pltstr, ",%c\n'%s'", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s'", 92, mwllfle );
+*/
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# endif /* PST_DNSPLT == 4 */
+/*............................................................................*/
+# endif /* PST_DNSPLT != 0 */
+/*............................................................................*/
+# if (( PST_FLWPLT == 4 )\
+    ||( PST_FLWPLT == 5 ))
+/* gnuplot configurations for fluid velocity field: */
+
+   xmid = .5*( xmax + xmin );
+   ymid = .5*( ymax + ymin );
+   zmid = .5*( zmax + zmin );
+
+   xx = ( xmax - xmin );
+   yy = ( ymax - ymin );
+   zz = ( zmax - zmin );
+/*............................................................................*/
+# if PST_FLWPLT == 4 
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.flw" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+   fprintf( pltstr, "set style data lines\n" );
+   fprintf( pltstr, "set title '%s;"
+     " 2D plot of fluid velocity field'\n", stp->name ); 
+/*............................................................................*/
+# if PST_ISOSCLE == 1
+   if ( xx < yy )
+      xx = yy;
+   if ( yy < xx )
+      yy = xx;
+# endif
+/*............................................................................*/
+   xx *= .6;
+   yy *= .6;
+
+   arrlen = PST_SCALE1*norm2;
+   xx0 = xmid -.95*xx;
+   xx1 = xx0 + arrlen;
+   xx2 = xx0 + 0.180*xx;
+
+   if ( xx2 < ( xx0 + 1.100*arrlen ))
+      xx2 = xx0 + 1.100*arrlen;
+
+   yy0 = ymid - 0.910*yy;
+   yy1 = yy0 - 0.055*yy;
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+   fprintf( pltstr, "set grid\n" );
+   fprintf( pltstr, "set size square\n" );
+   
+/* plot arrow [ maximum length ]: */
+
+   fprintf( pltstr, "set style lines 1 lt 7 lw 1.3\n" ); /* lt 7: red */
+   fprintf( pltstr, "set style arrow 1 head nofilled "
+      "size screen 0.009, 30, 90 ls 1\n" );
+/*............................................................................*/
+# ifdef PST_SCLFLW
+   if ( 0. < PST_SCLFLW )
+   {
+      fprintf( pltstr, "set arrow from %+.5e,%+5e to %+.5e,%+.5e as 1\n",
+         xx0, yy0, xx1, yy0 );
+      fprintf( pltstr, "set label %c%.5e m/s %c at %+.5e,%+.5e\n",
+         34, ( double ) PST_SCLFLW, 34, xx2, yy0 ); /* char '"' = ASCII 34 */
+      fprintf( pltstr, "set label %cmax: %c at %+.5e,%+.5e\n",
+         34, 34, xx0, yy1 );
+      fprintf( pltstr, "set label %c%.5e m/s %c at %+.5e,%+.5e\n",
+         34, norm1, 34, xx2, yy1 );
+   }
+   else
+   {
+      fprintf( pltstr, "set arrow from %+.5e,%+5e to %+.5e,%+.5e as 1\n",
+         xx0, yy1, xx1, yy1 );
+      fprintf( pltstr, "set label %c%.5e m/s [ maximum ]%c at %+.5e,%+.5e\n",
+         34, norm1, 34, xx2, yy1 ); /* char '"' = ASCII 34 */
+   };
+# else
+      fprintf( pltstr, "set arrow from %+.5e,%+5e to %+.5e,%+.5e as 1\n",
+         xx0, yy1, xx1, yy1 );
+      fprintf( pltstr, "set label %c%.5e m/s [ maximum ]%c at %+.5e,%+.5e\n",
+         34, norm1, 34, xx2, yy1 ); /* char '"' = ASCII 34 */
+# endif
+/*............................................................................*/
+/* data file: */
+/* [ char '\' = ASCII 92 ] */
+
+   fprintf( pltstr, "plot" );
+
+/* lt 6: blue, lt 7: red, lt 8: black */
+   fprintf( pltstr, " %c\n'%s' with lines lt 6 lw 0.5", 92, flwdat );
+/*............................................................................*/
+# if PST_MESH == 1 /* plot mesh cell system */
+   fprintf( pltstr, ",%c\n'%s' with lines lt 8 lw 0.2", 92, meshfle );
+# endif /* PST_MESH == 1 */
+/*............................................................................*/
+# if PST_WALLS == 1 /* plot electric walls */
+   fprintf( pltstr, ",%c\n'%s' with lines lt 7 lw 2.0", 92, ewllfle );
+# elif PST_WALLS == 2 /* plot electric and magnetic walls */
+   fprintf( pltstr, ",%c\n'%s' with lines lt 7 lw 2.0", 92, ewllfle );
+   fprintf( pltstr, ",%c\n'%s' with lines lt 6 lw 2.0", 92, mwllfle );
+# endif /* PST_WALLS == ... */ 
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# elif PST_FLWPLT == 5 
+/* [ works with gnuplot-4.0 or higher ] */
+
+   strcpy( pltfle, "gnu.flw" );
+   pltstr = fopen( pltfle, "w+" );
+
+   fprintf( pltstr, "#[ gnuplot file: %s ]\n", pltfle );
+   fprintf( pltstr, "set parametric\n" );
+   fprintf( pltstr, "unset key\n" );
+   fprintf( pltstr, "set style data lines\n" );
+   fprintf( pltstr, "set title '%s; 3D plot of "
+      "fluid velocity field'\n", stp->name );
+/*............................................................................*/
+# if PST_ISOSCLE == 1
+   if ( xx < yy )
+      xx = yy;
+   if ( xx < zz )
+      xx = zz;
+   if ( yy < xx )
+      yy = xx;
+   if ( yy < zz )
+      yy = zz;
+   if ( zz < xx )
+      zz = xx;
+   if ( zz < yy )
+      zz = yy;
+# endif
+/*............................................................................*/
+   xx *= .6;
+   yy *= .6;
+   zz *= .6;
+
+   fprintf( pltstr, "set xrange [%.15e:%.15e]\n", ( xmid-xx ), ( xmid+xx ));
+   fprintf( pltstr, "set yrange [%.15e:%.15e]\n", ( ymid-yy ), ( ymid+yy ));
+   fprintf( pltstr, "set zrange [%.15e:%.15e]\n", ( zmid-zz ), ( zmid+zz ));
+   fprintf( pltstr, "set xlabel 'x/m'\n" );
+   fprintf( pltstr, "set ylabel 'y/m'\n" );
+   fprintf( pltstr, "set zlabel 'z/m'\n" );       
+   fprintf( pltstr, "set nogrid\n" );
+   fprintf( pltstr, "set border\n" );
+   fprintf( pltstr, "xrot=60\n" );
+   fprintf( pltstr, "zrot=0\n" );
+   fprintf( pltstr, "splot" );
+   fprintf( pltstr, "%c\n'%s' with lines", 92, flwdat ); /* 92 = ASCI char '\'*/
+/*............................................................................*/
+/* pause: */
+
+   if ( PST_PAUSE == -1 )
+      fprintf( pltstr, "\npause -1 '[ hit return to continue ]'\n" );
+   else
+      fprintf( pltstr, "\npause %3.1f\n", ( float ) PST_PAUSE );
+
+   fclose( pltstr );
+
+# endif /* PST_FLWPLT == 5 */
+# endif /* (( PST_FLWPLT == 4 )||( PST_FLWPLT == 5 )) */
+/*............................................................................*/
+   ( state->rtn ) = null;
+
+   PRBLDCLR( "\r" );
+   printf( " %*s", 78, "POSTPROCESSING" );
+   PRNORMAL( "" );
+
+   return state;
+}
+/*============================================================================*/
+# undef PST_DISPL
+# undef PST_FLWPLT
+# undef PST_MAXSTRNGS
+# undef PST_SCLFLW 
+# undef PST_SCALE1 
+# undef PST_SCALE2 
+# undef PST_ISOSCLE
+# undef PST_WALLS
+# undef PST_TMPPLT
+# undef PST_PRSPLT
+# undef PST_DNSPLT
+# undef PST_FLWPLT
+/*----------------------------------------------------------------------------*/
+# ifndef DO_ARGC
+
+# define DO_ARGC "argc(*)"
+/*******************************************************************************
+*                                                                              *
+*   ANSI C function argc(*)                                                    *
+*   [ DANSE - Discrete Approximation of the Navier Stokes Equations,           *
+*     release 1.0 ]                                                            *
+*                                                                              *
+*   This function returns arg(z) ( the argument or 'phase' of z ),             *
+*   for any complex  z = uu + i*vv.                                            *
+*                                                                              *
+*   The value  of  arg(z)  is returned in the interval                         *
+*   [ - PI ,  PI [ + 2PI*int(n/2), if nn is even, or in                        *
+*   [    0 , 2PI [ + 2PI*int(n/2), if nn is odd and nn>0,                      *
+*   [ -2PI ,   0 [ + 2PI*int(n/2), if nn is odd and nn<0.                      *
+*                                                                              *
+*   (C) SHEIN; Munich, February 2007                          Steffen Hein     *
+*   [ Update: March 18, 2022 ]                             <contact@sfenx.de>  *
+*                                                                              *
+*******************************************************************************/
+# include <stdio.h>
+# include <stddef.h>
+/*----------------------------------------------------------------------------*/
+# include "../math/maths.h"
+# include "../math/consts.h"
+/*----------------------------------------------------------------------------*/
+# ifndef EPSILON
+   # define EPSILON (( double )( 1.000e-277 ))
+# endif
+/*----------------------------------------------------------------------------*/
+# ifndef PRECISION
+   # define PRECISION (( double )( 1.000e-15 ))
+# endif
+/*----------------------------------------------------------------------------*/
+/* should be defined in "consts.h" */
+/*
+typedef struct
+{
+   double r, i;
+
+   double arg, nrm;
+} COMPLEX;
+*/
+/*============================================================================*/
+
+COMPLEX *\
+argc( COMPLEX *ipt, short nn )
+{
+   static COMPLEX cc = {null},
+      *rpt = &cc;
+
+   static double
+   uu = ZERO,
+   vv = ZERO;
+
+   double 
+      fabs( double s ),
+      atan( double s ),
+      sqrt( double s );
+/*----------------------------------------------------------------------------*/
+
+   uu = ( ipt->r );
+   vv = ( ipt->i );
+
+   ( rpt->r ) = uu;
+   ( rpt->i ) = vv;
+
+   ( rpt->nrm ) = sqrt( uu*uu + vv*vv );
+     
+   if (( rpt->nrm ) < EPSILON )
+   {
+      ( rpt->arg ) = ZERO;
+      goto value; 
+   };
+
+   uu /= ( rpt->nrm );
+   vv /= ( rpt->nrm );
+ 
+   if ( EPSILON < uu ) 
+   {
+      ( rpt->arg ) = atan( vv/uu );
+      goto value;
+   } 
+   else if ( uu < -EPSILON )
+   {
+      if ( ZERO < vv ) 
+         ( rpt->arg ) = atan( vv/uu ) + PI;
+      if ( vv <= ZERO ) 
+         ( rpt->arg ) = atan( vv/uu ) - PI;
+      goto value;
+   }
+   else
+   {
+      if ( EPSILON < vv )
+      {
+         ( rpt->arg ) = PI/2.;
+         goto value;
+      }
+      else if ( vv < -EPSILON )
+      {
+         ( rpt->arg ) = -PI/2.;
+         goto value;
+      }
+      else
+      {
+         ( rpt->arg ) = ZERO;
+         goto value;
+      };
+   };
+/*............................................................................*/
+
+  value:
+    
+   if ( nn != TWO*( short )( nn/TWO ))         /* case: nn odd */
+   {
+      if (( null < nn )&&(( rpt->arg ) <  ZERO )) 
+         ( rpt->arg ) += 2.*PI;
+      if (( nn < null )&&( ZERO <= ( rpt->arg ))) 
+         ( rpt->arg ) -= 2.*PI;
+   };
+   ( rpt->arg ) += ( 2.*PI*( short )( nn/TWO ) );
+
+   return rpt;
+}
+/*============================================================================*/
+/************************* end of function argc(*) ****************************/
+# endif /* not defined DO_ARGC */
+/***************** end of postprocessing function pstprc(*) *******************/

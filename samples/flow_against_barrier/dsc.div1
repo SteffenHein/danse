@@ -1,0 +1,21 @@
+DIVISIONS-1
+mod_barrier.D
+flow_against_inclined_board
+
+7   |divisions,_identifiers,_operation_marks,_etc.
+---------------------------------------------------------------
+n001=bc_divisions,_block____1_____________________________:  25
+n002=bc_divisions,_block____2_____________________________: 130
+n003=bc_divisions,_blocks_3,5_____________________________:   8
+n004=bc_divisions,_block____4_____________________________:   7
+n005=ab_divisions,_blocks_3,4_____________________________:   1
+n006=bc_divisions,_blocks_1,2__________________[dependent]:  23
+n007=bc_divisions,_blocks_6,7__________________[dependent]:  16
+
+1   |vertical_[z]domains
+---------------------------------------------------------------
+m001=vertical_divisions,_domain__null_____________________:   1
+
+DSC model divisions logfile dsc.div1 created:
+Sat Apr 16 12:21:49 2022
+ÿ

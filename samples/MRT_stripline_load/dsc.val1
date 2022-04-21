@@ -1,0 +1,65 @@
+mod_load.A                 
+stripline_load             
+____________________________________________DSC-MODEL_EVALUATION_FILE_dsc.val1
+iteration_cycles:             60000
+1st_evlt'd_cycle,_Mxwfld:     21
+Lst_evlt'd_cycle,_Mxwfld:     200
+iterations/cycle,_Mxwfld:     20
+1st_evlt'd_cycle,_Ht&Fld:     1
+Lst_evlt'd_cycle,_Ht&Fld:     60000
+iterations/cycle,_Ht&Fld:     2
+
+Maxwell_field_evaluation  
+evaluated_objects             number
+E-ports                       6          [individual]
+E-nodes                       0         
+H-ports                       18         [individual]
+H-nodes                       0         
+
+Thermal-fluid_evaluation   
+evaluated_objects             number
+heat_current:                 0
+face_temperatures:            3
+node_temperatures:            6
+nodal_velocities:             2
+
+>>-CELL_and_FACE_LABELS,_parameters,_etc->>
+
+11401             8
+19282             8
+19291             8
+19300             8
+19309             8
+19318             8
+19102             12
+19103             12
+19104             12
+19105             12
+19106             12
+19107             12
+19108             12
+19109             12
+19110             12
+19318             12
+19319             12
+19320             12
+19321             12
+19322             12
+19323             12
+19324             12
+19325             12
+19326             12
+19318             3
+19321             3
+19326             3
+19102
+19195
+19318
+19282
+19773
+19775
+19102             1
+19195             1
+
+DSC model evaluation file dsc.val1 created:
+Tue 12 Apr 2022; 15:44:41

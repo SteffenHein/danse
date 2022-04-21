@@ -1,0 +1,739 @@
+/* [ file: scathcr-1.0r3.a ] */
+/*******************************************************************************
+*                                                                              *
+*   Function body scathcr(*)                                                   *
+*   [ DANSE - Discrete Approximation of the Navier Stokes Equations,           *
+*     release 1.0r3 ]                                                          *
+*                                                                              *
+*   DSC nodal temperatures updating function                                   *
+*   [ Stable version, fluid flows separately updated in function sctflow(*) ]  *
+*                                                                              *
+*   (C) SHEIN; Bad Aibling, October 2007                   Steffen Hein        *
+*   [ Update: April 05, 2022 ]                          <contact@sfenx.de>     *
+*                                                                              *
+*******************************************************************************/
+/* macros: */
+/*----------------------------------------------------------------------------*/
+# define INC_UER(N) \
+{ \
+   uer[0] = ( inc->i[(N)][0] ) + ( inc->i[(N)][1] ) + \
+            ( inc->i[(N)][2] ) + ( inc->i[(N)][3] );  \
+   uer[1] = ( inc->i[(N)][4] ) + ( inc->i[(N)][5] ) + \
+            ( inc->i[(N)][6] ) + ( inc->i[(N)][7] );  \
+   uer[2] = ( inc->i[(N)][8] ) + ( inc->i[(N)][9] ) + \
+           ( inc->i[(N)][10] ) + ( inc->i[(N)][11] ); \
+}
+/*............................................................................*/
+# define INC_UEZ(N) \
+{ \
+   uer[0] = ( inc->r[(N)][0] ) + ( inc->r[(N)][1] ) + \
+            ( inc->r[(N)][2] ) + ( inc->r[(N)][3] ); \
+   uer[1] = ( inc->r[(N)][4] ) + ( inc->r[(N)][5] ) + \
+            ( inc->r[(N)][6] ) + ( inc->r[(N)][7] ); \
+   uer[2] = ( inc->r[(N)][8] ) + ( inc->r[(N)][9] ) + \
+           ( inc->r[(N)][10] ) + ( inc->r[(N)][11] ); \
+   uei[0] = ( inc->i[(N)][0] ) + ( inc->i[(N)][1] ) + \
+            ( inc->i[(N)][2] ) + ( inc->i[(N)][3] ); \
+   uei[1] = ( inc->i[(N)][4] ) + ( inc->i[(N)][5] ) + \
+            ( inc->i[(N)][6] ) + ( inc->i[(N)][7] ); \
+   uei[2] = ( inc->i[(N)][8] ) + ( inc->i[(N)][9] ) + \
+           ( inc->i[(N)][10] ) + ( inc->i[(N)][11] ); \
+}
+/*............................................................................*/
+# define INC_UHR(N) \
+{ \
+   uhr[0] =  ( inc->i[(N)][4] ) - ( inc->i[(N)][6] ) - \
+             ( inc->i[(N)][9] ) + ( inc->i[(N)][11] ); \
+   uhr[1] = -( inc->i[(N)][1] ) + ( inc->i[(N)][3] ) + \
+             ( inc->i[(N)][8] ) - ( inc->i[(N)][10] ); \
+   uhr[2] =  ( inc->i[(N)][0] ) - ( inc->i[(N)][2] ) - \
+             ( inc->i[(N)][5] ) + ( inc->i[(N)][7] ); \
+}
+/*............................................................................*/
+# define INC_UHZ(N) \
+{ \
+   uhr[0] =  ( inc->r[(N)][4] ) - ( inc->r[(N)][6] ) - \
+             ( inc->r[(N)][9] ) + ( inc->r[(N)][11] ); \
+   uhr[1] = -( inc->r[(N)][1] ) + ( inc->r[(N)][3] ) + \
+             ( inc->r[(N)][8] ) - ( inc->r[(N)][10] ); \
+   uhr[2] =  ( inc->r[(N)][0] ) - ( inc->r[(N)][2] ) - \
+             ( inc->r[(N)][5] ) + ( inc->r[(N)][7] ); \
+   uhi[0] =  ( inc->i[(N)][4] ) - ( inc->i[(N)][6] ) - \
+             ( inc->i[(N)][9] ) + ( inc->i[(N)][11] ); \
+   uhi[1] = -( inc->i[(N)][1] ) + ( inc->i[(N)][3] ) + \
+             ( inc->i[(N)][8] ) - ( inc->i[(N)][10] ); \
+   uhi[2] =  ( inc->i[(N)][0] ) - ( inc->i[(N)][2] ) - \
+             ( inc->i[(N)][5] ) + ( inc->i[(N)][7] ); \
+}
+/*............................................................................*/
+# define REF_UER(N) \
+{ \
+   uer[0] += ( ref->r[(N)][0] ) + ( ref->r[(N)][1] ) + \
+             ( ref->r[(N)][2] ) + ( ref->r[(N)][3] ); \
+   uer[1] += ( ref->r[(N)][4] ) + ( ref->r[(N)][5] ) + \
+             ( ref->r[(N)][6] ) + ( ref->r[(N)][7] ); \
+   uer[2] += ( ref->r[(N)][8] ) + ( ref->r[(N)][9] ) + \
+            ( ref->r[(N)][10] ) + ( ref->r[(N)][11] ); \
+}
+/*............................................................................*/
+# define REF_UEZ(N) \
+{ \
+   uer[0] += ( ref->r[(N)][0] ) + ( ref->r[(N)][1] ) + \
+             ( ref->r[(N)][2] ) + ( ref->r[(N)][3] ); \
+   uer[1] += ( ref->r[(N)][4] ) + ( ref->r[(N)][5] ) + \
+             ( ref->r[(N)][6] ) + ( ref->r[(N)][7] ); \
+   uer[2] += ( ref->r[(N)][8] ) + ( ref->r[(N)][9] ) + \
+            ( ref->r[(N)][10] ) + ( ref->r[(N)][11] ); \
+   uei[0] += ( ref->i[(N)][0] ) + ( ref->i[(N)][1] ) + \
+             ( ref->i[(N)][2] ) + ( ref->i[(N)][3] ); \
+   uei[1] += ( ref->i[(N)][4] ) + ( ref->i[(N)][5] ) + \
+             ( ref->i[(N)][6] ) + ( ref->i[(N)][7] ); \
+   uei[2] += ( ref->i[(N)][8] ) + ( ref->i[(N)][9] ) + \
+            ( ref->i[(N)][10] ) + ( ref->i[(N)][11] ); \
+}
+/*............................................................................*/
+# define REF_UHR(N) \
+{ \
+   uhr[0] -=  ( ref->r[(N)][4] ) - ( ref->r[(N)][6] ) - \
+              ( ref->r[(N)][9] ) + ( ref->r[(N)][11] ); \
+   uhr[1] -= -( ref->r[(N)][1] ) + ( ref->r[(N)][3] ) + \
+              ( ref->r[(N)][8] ) - ( ref->r[(N)][10] ); \
+   uhr[2] -=  ( ref->r[(N)][0] ) - ( ref->r[(N)][2] ) - \
+              ( ref->r[(N)][5] ) + ( ref->r[(N)][7] ); \
+}
+/*............................................................................*/
+# define REF_UHZ(N) \
+{ \
+   uhr[0] -=  ( ref->r[(N)][4] ) - ( ref->r[(N)][6] ) - \
+              ( ref->r[(N)][9] ) + ( ref->r[(N)][11] ); \
+   uhr[1] -= -( ref->r[(N)][1] ) + ( ref->r[(N)][3] ) + \
+              ( ref->r[(N)][8] ) - ( ref->r[(N)][10] ); \
+   uhr[2] -=  ( ref->r[(N)][0] ) - ( ref->r[(N)][2] ) - \
+              ( ref->r[(N)][5] ) + ( ref->r[(N)][7] ); \
+   uhi[0] -=  ( ref->i[(N)][4] ) - ( ref->i[(N)][6] ) - \
+              ( ref->i[(N)][9] ) + ( ref->i[(N)][11] ); \
+   uhi[1] -= -( ref->i[(N)][1] ) + ( ref->i[(N)][3] ) + \
+              ( ref->i[(N)][8] ) - ( ref->i[(N)][10] ); \
+   uhi[2] -=  ( ref->i[(N)][0] ) - ( ref->i[(N)][2] ) - \
+              ( ref->i[(N)][5] ) + ( ref->i[(N)][7] ); \
+}
+/*============================================================================*/
+
+DSC_HCRRTS *\
+scathcr( struct solverstat *state )
+{
+/*----------------------------------------------------------------------------*/
+/* allusions: */
+/*     
+   extern struct topology top;
+   extern struct hcrsmx hcs;
+   extern struct boundary bnd;
+
+# if DSC_DOMAIN == 1
+   extern DSC_FIELDS fld;
+# else
+   extern DSC_FIELDS fld[];
+# endif
+*/
+/* declarations: */
+/* structure pointers: */
+
+   static struct topology
+     *tpt = NULL;
+
+   static struct hcrsmx
+     *hsp = NULL;
+
+   static DSC_FIELDS
+     *inc = NULL,
+     *ref = NULL;
+
+   static DSC_HCRRTS
+     *hci = NULL,
+     *hre = NULL;
+/*............................................................................*/
+/* register type */
+
+   register long
+      hh = null,
+      mm = null;
+
+   register signed char
+      jj = null,
+      kk = null,
+      fc = null,
+      sws = null,
+      sgn = null;
+
+   register double
+      dr = ZERO;
+/*............................................................................*/
+/* ... and others */
+
+   static double
+      kh = ZERO,
+      scdnwd = ZERO,
+      scupwd = ZERO;
+
+   static double
+      uer[THREE] = {ZERO},
+      uhr[THREE] = {ZERO},
+      eer[THREE] = {ZERO},
+      hhr[THREE] = {ZERO};
+/*............................................................................*/
+# if DSC_DOMAIN != 1
+   static double
+      uei[THREE] = {ZERO},
+      uhi[THREE] = {ZERO},
+      eei[THREE] = {ZERO},
+      hhi[THREE] = {ZERO};
+# endif
+/*............................................................................*/
+   static double
+      adm = ZERO;           /* field admittance */
+
+   static CLUSTER
+     *tmp = NULL;
+/*............................................................................*/
+# if SCT_DISPL == 1
+/* for debugging purposes: */
+
+   static FILE 
+     *display = null;
+
+   static char 
+      ptr[STS_SIZE] = {null},
+    **endp = null;
+
+   char
+     *lotos( long, char );
+# endif
+/*............................................................................*/
+   CLUSTER 
+      *gradnt( CLUSTER *cls, long hh ),
+      *gradfc( CLUSTER *cls, long hh );
+/*----------------------------------------------------------------------------*/
+# if SCT_DISPL == 1
+   display = stdout;
+# endif
+/*............................................................................*/
+/* overtake solverstate: */
+   
+   jj = ( state->hclbl );  /* thermal/fluid structure index */
+
+   sws = ( state->sws );   /* electromagnetic sources switched off/on [0/1] */
+   tpt = ( state->tpt );   /* topological structure */
+   adm = ( state->spt->adm ); /* EM field admittance */
+   hsp = ( state->hsp );   /* thermal and fluid flow s-parameters */
+
+/* incident [ != reflected ] EM fields: */
+   
+   inc = ( state->inc ); /* incident EM field */
+   ref = ( state->out ); /* reflected EM field */
+   
+/* incident [ = reflected ] thermal and fluid fields: */
+   
+   hci = ( state->hci[( int )jj] );
+   hre = ( state->hre[( int )jj] );
+
+   tmp = ( state->tmp );
+/*............................................................................*/
+/* smooth heat source updating coefficients: */
+
+# if SCT_SMTHSCS == 0
+   scdnwd = 0.;
+# elif SCT_SMTHSCS == 1
+   scdnwd = 1. - ( 1./(( double )(( state->vpt->rc ) + ONE )));
+# else 
+   scdnwd = 1. - ( 1./(( double ) SCT_SMTHSCS ));
+# endif
+   scupwd = ( 1. - scdnwd )*SCT_ONE_;
+/*............................................................................*/
+/* here starts the job: */
+/*............................................................................*/
+   if (( state->dmn ) == 't' ) /* time domain process */
+   {
+/*............................................................................*/
+# if DSC_DOMAIN == 2
+      printf( "\n Error message from function %s :", __func__ );
+      printf( "\n\n Solver is compiled in frequency "
+         "domain mode 'DSC_DOMAIN = 2'" );
+      printf( "\n - but run in time domain mode 1 !!!" );
+      printf( "\n\n [ Change time/frequency domain macro DSC_DOMAIN "
+         "in SOLVER.CONF from 2 to" );
+      printf( "\n   1: time domain, or"
+         "\n   0: time & frequency domain." );
+      printf( "\n   Then re-compile and restart program.]\n " );
+
+      strncpy(( state->fcterr ), __func__, SHS_SIZE );
+      strncpy(( state->errmsg ), "domain_!!!_[solver_compiled_"
+         "in_mode_DSC_DOMAIN=2] ", LGS_SIZE );
+
+      return NULL;
+/*............................................................................*/
+# else /* DSC_DOMAIN == 0,1 */
+/*............................................................................*/
+      scupwd = 1. - scdnwd;
+/*............................................................................*/
+/* compute electric losses and integrate heat sources: */
+
+      mm = null;
+      while(( mm++ ) < ( tpt->n ))
+      {
+         hh = ( hsp->hh[mm] );
+         if (( hsp->ttyp[hh] ) != 't' ) /* non trivial thermal cell */
+         {
+/*............................................................................*/
+/* update heat source density qn [ for lossy electric cell, e.g. ]: */
+/* sws: 0/1 [ swiched sources off/on ] */
+
+            if (( sws == ONE )
+             &&(( hsp->scs[hh] ) != null ))
+            {
+               ( hci->qn[mm] ) *= scdnwd;
+/*............................................................................*/
+# if SCT_DISPL == 1
+               if (( *( state->opt ) == null )
+                 &&(( state->vpt->n ) == ( state->nn ))
+		 &&( null == ( strtol( ptr, endp, DEC ))))
+               {
+                  strncpy( ptr, lotos( mm, null ), SHS_SIZE );
+               };
+# endif
+/*............................................................................*/
+/* dielectric loss contributions: */
+
+               if ((( hsp->scs[hh] ) == ONE )
+                 ||(( hsp->scs[hh] ) == THREE ))
+               {
+                  INC_UER(mm);
+                  REF_UER(mm);
+/*............................................................................*/
+# if SCT_DISPL == 1
+                  if ((( state->vpt->n ) == ( state->nn ))&&
+                      ( mm == strtol( ptr, endp, DEC )))
+                     fprintf( display, "\r E = (" );
+# endif
+/*............................................................................*/
+                  dr = ZERO;
+                  jj = null; do
+                  {
+                     eer[jj] = ZERO;
+                     kk = null; do
+                     {
+                        eer[jj] += (( hsp->bi[hh][jj][kk] )*( uer[kk] ));
+                     } while(( ++kk ) < THREE );
+                     eer[jj] *= SCT_QUART;
+/*............................................................................*/
+# if SCT_DISPL == 1
+                     if ((( state->vpt->n ) == ( state->nn ))&&
+                         ( mm == strtol( ptr, endp, DEC )))
+                        fprintf( display, "%+.5e|", eer[jj] );
+# endif
+/*............................................................................*/
+                     dr += ( eer[jj]*eer[jj] );
+                  } while(( ++jj ) < THREE );
+
+                  ( hci->qn[mm] ) += ( dr*scupwd*( hsp->ke[hh] ));
+/*............................................................................*/
+# if SCT_DISPL == 1
+                  if ((( state->vpt->n ) == ( state->nn ))&&
+                      ( mm == strtol( ptr, endp, DEC )))
+                  {
+                     fprintf( display, "\b) [Volts/m]" );
+                     fprintf( display, "\n |E(%ld)| = %.7e [Volts/m]",
+                        mm, sqrt( dr ));
+                     fprintf( display, "\n |q(%ld)| = %.7e [Watts/m^3]",
+                        mm, ( hci->qn[mm] ));
+                     fprintf( display, "\n Please acknowledge "
+                        "[ enter next mesh cell index ]: " );
+                     scanf( "%s", ptr );
+                  };
+# endif /* SCT_DISPL == 1 */
+/*............................................................................*/
+               }; /* end if (( hsp->scs[hh] ) == ONE or THREE ) */
+/*............................................................................*/
+/* magnetic loss contributions: */
+
+               if ((( hsp->scs[hh] ) == TWO )
+                 ||(( hsp->scs[hh] ) == THREE ))
+               {
+                  INC_UHR(mm);
+                  REF_UHR(mm);
+
+                  dr = ZERO;
+                  jj = null; do
+                  {
+                     hhr[jj] = ZERO;
+                     kk = null; do
+                     {
+                        hhr[jj] += (( hsp->bi[hh][jj][kk] )*( uhr[kk] ));
+                     } while(( ++kk ) < THREE );
+                     hhr[jj] *= ( SCT_QUART*adm );
+                     dr += ( hhr[jj]*hhr[jj] );
+                  } while(( ++jj ) < THREE );
+
+                  ( hci->qn[mm] ) += ( dr*scupwd*( hsp->km[hh] ));
+
+               }; /* end if (( hsp->scs[hh] ) == TWO or THREE ) */
+	    } /* end if (( hsp->scs[hh] ) != null ) */
+            else
+               ( hci->qn[mm] ) = ZERO;
+/*............................................................................*/
+/* TEMPERATURE */
+/* [ node temperature shift from heat diffusion and sources ] */
+/*............................................................................*/
+/* copy heat conductivity: */
+
+            kh = ( hsp->kh[hh] );
+/*............................................................................*/
+# if DSC_FLDMDE != 0 
+# if NUSSELT != 0
+            if ((( hsp->ttyp[hh] ) == 'f' ) /* 'f'luid type cell */
+              &&( SCT_TRIVIAL < ( hci->nus[mm] )))
+            {
+               kh *= ( hci->nus[mm] );
+            };
+# endif /* NUSSELT != 0 */
+# endif /* DSC_FLDMDE != 0 */
+/*............................................................................*/
+/* copy actual temperatures; in the node: */
+/* ->node: node value [ fixed for now ] */
+/* ->nupd: node value [ to be updated ] */
+
+            ( tmp->node ) = ( hci->tn[mm] );
+            ( tmp->nupd ) = ( tmp->node ); 
+
+/* ... and on the faces: */
+
+            fc = null; do
+            {
+               ( tmp->face[fc] ) = ( hci->tf[mm][fc] );
+            } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* restore nodal temperature gradient, */
+/* in cell coordinates [ with respect to basis b[] ] */
+/* dtdb[k] = < b[k] | grad(T) >, */
+/* and in canonical coordinates */
+/* dT[k] = < e[k] | grad(T) > = adj(B^-1 )*dTdb ]: */
+
+            tmp = gradnt( tmp, hh );
+/*............................................................................*/
+# if SCT_TMPGRAD == 0
+/* node temperature shift from heat sources and currents: */
+   
+            dr = ZERO;
+            fc = null; do
+            {
+               dr += ( hci->ic[mm][fc] );
+            } while(( ++fc ) < FACES );
+            ( tmp->nupd ) +=\
+               (( hsp->ct[hh] )*( dr/( hsp->vol[hh] )+( hci->qn[mm] )));
+/*............................................................................*/
+# elif SCT_TMPGRAD == 1
+/* restore face temperature gradient */
+
+            tmp = gradfc( tmp, hh );
+/*............................................................................*/
+/* node temperature shift from diffusive heat currents and sources: */
+
+            dr = ZERO;
+            fc = null; do
+            {
+               dr += ( hci->ic[mm][fc] );
+               kk = null; do
+               {
+                  dr += ( kh*( hsp->f[hh][fc][kk] )*( tmp->grdf[fc][kk] ));
+               } while(( ++kk ) < THREE );
+            } while(( ++fc ) < FACES );
+            ( tmp->nupd ) +=\
+               (( hsp->ct[hh] )*( dr/( hsp->vol[hh] )+( hci->qn[mm] )));
+# endif /* SCT_TMPGRAD == 1 */
+/*............................................................................*/
+/* updated nodal temperature: */
+
+            ( hre->tn[mm] ) = ( tmp->nupd );
+/*............................................................................*/
+/* new [ truncated and weighted ] face temperature gradients: */
+
+            sgn = ONE;
+            fc = null; do
+            {
+               kk = ( short )( fc/TWO );
+               dr = ( hsp->s[hh][fc][kk] )*( tmp->nupd );
+
+               ++kk; kk%=THREE; /* kk := ( kk+ONE ) mod THREE */
+               dr += ( sgn*( hsp->s[hh][fc][kk] )*( tmp->db[kk] )/2. );
+               ++kk; kk%=THREE;
+               dr += ( sgn*( hsp->s[hh][fc][kk] )*( tmp->db[kk] )/2. );
+
+               ( hre->tt[mm][fc] ) = dr*kh;
+               ( hre->ic[mm][fc] ) = ZERO;
+
+               sgn *= ( -ONE );
+            } while(( ++fc ) < FACES );
+         }; /* end if (( hsp->ttyp ) != 't'rivial ) */
+      }; /* end while(( mm++ ) < ( tpt->n )) */
+
+# endif /* DSC_DOMAIN == 0, 1 */
+/*............................................................................*/
+   } /* end if (( state->dmn ) == 't'ime domain ) */
+   else /* if (( state->dmn ) != 't' ): frequency domain */
+   {
+/*............................................................................*/
+# if DSC_DOMAIN == 1 
+      printf( "\n Error message from function %s :", __func__ );
+      printf( "\n\n Solver is compiled in time "
+	 "domain mode 'DSC_DOMAIN = 1'" );
+      printf( "\n - but run in frequency domain mode 2 !!!" );
+      printf( "\n\n [ Change time/frequency domain macro DSC_DOMAIN "
+	 "in SOLVER.CONF from 1 to" );
+      printf( "\n   0: time & frequency domain, or" );
+      printf( "\n   2: frequency domain." );
+      printf( "\n   Then re-compile and restart program.]\n " );
+
+      strncpy(( state->fcterr ), __func__, SHS_SIZE );
+      strncpy(( state->errmsg ), "domain_!!!_[solver_compiled_"
+         "in_mode_DSC_DOMAIN=1] ", LGS_SIZE );
+
+      return NULL;
+/*............................................................................*/
+# else /* the remaining cases: DSC_DOMAIN == 0 or 2 */
+/*............................................................................*/
+      scupwd = ( 1. - scdnwd )/2.;
+/*............................................................................*/
+/* compute electric losses and integrate heat sources: */
+
+      mm = null;
+      while(( mm++ ) < ( tpt->n ))
+      {
+         hh = ( hsp->hh[mm] );
+         if (( hsp->ttyp[hh] ) != 't' ) /* non trivial thermal cell */
+         {
+/*............................................................................*/
+/* update heat source density qn [ for lossy electric cell, e.g. ]: */
+/* sws: 0/1 [ swiched sources off/on ] */
+
+            if (( sws == ONE )
+             &&(( hsp->scs[hh] ) != null ))
+            {
+               ( hci->qn[mm] ) *= scdnwd;
+/*...........................................................................*/
+# if SCT_DISPL == 1
+               if (( *( state->opt ) == null )
+                 &&(( state->vpt->n ) == ( state->nn ))
+		 &&( null == ( strtol( ptr, endp, DEC ))))
+               {
+                  strncpy( ptr, lotos( mm, null ), SHS_SIZE );
+               };
+# endif /* SCT_DISPL == 1 */
+/*...........................................................................*/
+/* dielectric loss contributions: */
+
+               if ((( hsp->scs[hh] ) == ONE )
+                 ||(( hsp->scs[hh] ) == THREE ))
+               {                               
+                  INC_UEZ(mm);
+                  REF_UEZ(mm);
+/*...........................................................................*/
+# if SCT_DISPL == 1
+                  if ((( state->vpt->n ) == ( state->nn ))&&
+                      ( mm == strtol( ptr, endp, DEC )))
+                     fprintf( display, "\r E = (" );
+# endif /* SCT_DISPL == 1 */
+/*...........................................................................*/
+                  dr = ZERO;
+                  jj = null; do
+                  {
+                     eer[jj] = ZERO;
+                     eei[jj] = ZERO;
+                     kk = null; do
+                     {
+                        eer[jj] += (( hsp->bi[hh][jj][kk] )*( uer[kk] ));
+                        eei[jj] += (( hsp->bi[hh][jj][kk] )*( uei[kk] ));
+                     } while(( ++kk ) < THREE );
+                     eer[jj] *= SCT_QUART;
+                     eei[jj] *= SCT_QUART;
+/*...........................................................................*/
+# if SCT_DISPL == 1
+                     if ((( state->vpt->n ) == ( state->nn ))&&
+                         ( mm == strtol( ptr, endp, DEC )))
+                        fprintf( display, "%+.2e%+.2e*j|", eer[jj], eei[jj] );
+# endif /* SCT_DISPL == 1 */
+/*...........................................................................*/
+                     dr += ( eer[jj]*eer[jj] );
+                     dr += ( eei[jj]*eei[jj] );
+                  } while(( ++jj ) < THREE );
+
+                  ( hci->qn[mm] ) += ( dr*scupwd*( hsp->ke[hh] ));
+/*...........................................................................*/
+# if SCT_DISPL == 1
+                  if ((( state->vpt->n ) == ( state->nn ))&&
+                      ( mm == strtol( ptr, endp, DEC )))
+                  {
+                     fprintf( display, "\b) [Volts/m]" );
+                     fprintf( display, "\n |E(%ld)| = %.7e [Volts/m]",
+                        mm, sqrt( dr ));
+                     fprintf( display, "\n |q(%ld)| = %.7e [Watts/m^3]",
+                        mm, ( hci->qn[mm] ));
+                     fprintf( display, "\n Please acknowledge "
+                        "[ enter next mesh cell index ]: " );
+                     scanf( "%s", ptr );
+                  };
+# endif /* SCT_DISPL == 1 */
+/*...........................................................................*/
+               }; /* end if (( hsp->scs[hh] ) == ONE or THREE ) */
+/*............................................................................*/
+/* magnetic loss contributions: */
+
+               if ((( hsp->scs[hh] ) == TWO )
+                 ||(( hsp->scs[hh] ) == THREE ))
+               {
+                  INC_UHZ(mm);
+                  REF_UHZ(mm);
+
+                  dr = ZERO;
+
+                  jj = null; do
+                  {
+                     hhr[jj] = ZERO;
+                     hhi[jj] = ZERO;
+                     kk = null; do
+                     {
+                        hhr[jj] += (( hsp->bi[hh][jj][kk] )*( uhr[kk] ));
+                        hhi[jj] += (( hsp->bi[hh][jj][kk] )*( uhi[kk] ));
+                     } while(( ++kk ) < THREE );
+                     hhr[jj] *= ( SCT_QUART*adm );
+                     hhi[jj] *= ( SCT_QUART*adm );
+                     dr += ( hhr[jj]*hhr[jj] );
+                     dr += ( hhi[jj]*hhi[jj] );
+                  } while(( ++jj ) < THREE );
+
+                  ( hci->qn[mm] ) += ( dr*scupwd*( hsp->km[hh] ));
+
+               }; /* end if (( hsp->scs[hh] ) == TWO or THREE ) */
+	    } /* end if (( hsp->scs[hh] ) != null ) */
+            else
+               ( hci->qn[mm] ) = ZERO;
+/*............................................................................*/
+/* TEMPERATURE */
+/* [ node temperature shift from heat diffusion and sources ] */
+/*............................................................................*/
+/* copy heat conductivity: */
+
+            kh = ( hsp->kh[hh] );
+/*............................................................................*/
+# if DSC_FLDMDE != 0 
+# if NUSSELT != 0
+            if ((( hsp->ttyp[hh] ) == 'f' ) /* 'f'luid type cell */
+              &&( SCT_TRIVIAL < ( hci->nus[mm] )))
+            {
+               kh *= ( hci->nus[mm] );
+            };
+# endif /* NUSSELT != 0 */
+# endif /* DSC_FLDMDE != 0 */
+/*............................................................................*/
+/* copy actual temperatures; in the node: */
+/* ->node: node value [ fixed for now ] */
+/* ->nupd: node value [ to be updated ] */
+
+            ( tmp->node ) = ( hci->tn[mm] );
+            ( tmp->nupd ) = ( tmp->node ); 
+
+/* ... and on the faces: */
+
+            fc = null; do
+            {
+               ( tmp->face[fc] ) = ( hci->tf[mm][fc] );
+            } while(( ++fc ) < FACES );
+/*............................................................................*/
+/* restore nodal temperature gradient, */
+/* in cell coordinates [ with respect to basis b[] ] */
+/* dtdb[k] = < b[k] | grad(T) >, */
+/* and in canonical coordinates */
+/* dT[k] = < e[k] | grad(T) > = adj(B^-1 )*dTdb ]: */
+
+            tmp = gradnt( tmp, hh );
+/*............................................................................*/
+# if SCT_TMPGRAD == 0
+/* node temperature shift from heat sources and currents: */
+   
+            dr = ZERO;
+            fc = null; do
+            {
+               dr += ( hci->ic[mm][fc] );
+            } while(( ++fc ) < FACES );
+            ( tmp->nupd ) +=\
+               (( hsp->ct[hh] )*( dr/( hsp->vol[hh] )+( hci->qn[mm] )));
+/*............................................................................*/
+# elif SCT_TMPGRAD == 1
+/* restore face temperature gradient */
+
+            tmp = gradfc( tmp, hh );
+/*............................................................................*/
+/* node temperature shift from diffusive heat currents and sources: */
+
+            dr = ZERO;
+            fc = null; do
+            {
+               dr += ( hci->ic[mm][fc] );
+               kk = null; do
+               {
+                  dr += ( kh*( hsp->f[hh][fc][kk] )*( tmp->grdf[fc][kk] ));
+               } while(( ++kk ) < THREE );
+            } while(( ++fc ) < FACES );
+            ( tmp->nupd ) +=\
+               (( hsp->ct[hh] )*( dr/( hsp->vol[hh] )+( hci->qn[mm] )));
+# endif /* SCT_TMPGRAD == 1 */
+/*............................................................................*/
+/* updated nodal temperature: */
+
+            ( hre->tn[mm] ) = ( tmp->nupd );
+/*............................................................................*/
+/* new [ truncated and weighted ] face temperature gradients: */
+
+            sgn = ONE;
+            fc = null; do
+            {
+               kk = ( short )( fc/TWO );
+               dr = ( hsp->s[hh][fc][kk] )*( tmp->nupd );
+
+               ++kk; kk%=THREE; /* kk := ( kk+ONE ) mod THREE */
+               dr += ( sgn*( hsp->s[hh][fc][kk] )*( tmp->db[kk] )/2. );
+               ++kk; kk%=THREE;
+               dr += ( sgn*( hsp->s[hh][fc][kk] )*( tmp->db[kk] )/2. );
+
+               ( hre->tt[mm][fc] ) = dr*kh;
+               ( hre->ic[mm][fc] ) = ZERO;
+
+               sgn *= ( -ONE );
+            } while(( ++fc ) < FACES );
+         }; /* end if (( hsp->ttyp ) != 't'rivial ) */
+      }; /* end while(( mm++ ) < ( tpt->n )) */
+
+# endif /* DSC_DOMAIN != 1 */
+/*............................................................................*/
+   }; /* end if (( state->dmn ) != 't' ) */
+/*............................................................................*/
+/* next iteration: */
+
+   ( state->hcrnn )++;
+/*............................................................................*/
+   return hre;
+}
+/*============================================================================*/
+# undef INC_UER
+# undef INC_UEZ
+# undef INC_UHR
+# undef INC_UHZ
+# undef REF_UER
+# undef REF_UEZ
+# undef REF_UHR
+# undef REF_UHZ
+/*----------------------------------------------------------------------------*/
+# undef SCT_TRIVIAL
+# undef SCT_SMTHSCS 
+# undef SCT_QUART 
+# undef SCT_ONE_
+# undef SCT_DISPL
+/*********************** end of file scathcr-1.0r3.a **************************/

@@ -1,0 +1,7 @@
+[directory: bin] 
+-------------------------------------------------------------------------------
+22 February 2007 
+Steffen Hein <hein@bnro.de>
+-------------------------------------------------------------------------------
+In this directory, the DANSE binaries [ solvd, former.do, poster.do ] may
+be temporarily stored on build time

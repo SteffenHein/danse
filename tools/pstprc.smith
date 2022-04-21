@@ -1,0 +1,40 @@
+/* [ file: pstprc.smith ] */
+# define DO_PSTPRC "pstprc(*)"
+/*******************************************************************************
+*                                                                              *
+*   ANSI C function pstprc.c, DANSE release 1.0.                              *
+*   DSC Postprocessing function                                                *
+*   [ in DANSE program package ]                                               *
+*                                                                              *
+*   (C) SHEIN; Munich, April 2007                             Steffen Hein     *
+*   [ Update: March 30, 2022 ]                             <contact@sfenx.de>  *
+*                                                                              *
+*******************************************************************************/
+# include "smithchrt.h"
+/*============================================================================*/
+
+POSTSTATE
+*pstprc( POSTSTATE *stp )
+{
+/* declarations: */
+
+   static POSTSTATE
+     *state;
+
+/* prototypes: */
+
+   POSTSTATE 
+     *smithchrt( POSTSTATE *stp );
+
+/*----------------------------------------------------------------------------*/
+/* initialize: */
+
+   state = stp;
+/*............................................................................*/
+   stp = smithchrt( stp );   /* smith chart building function */
+/*.........................*/
+   ( state->rtn ) = null;
+   return state;
+}
+/*============================================================================*/
+/****************** end of postprocessing function pstprc(*) ******************/

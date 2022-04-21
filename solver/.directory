@@ -1,0 +1,8 @@
+[ directory: solver ] 
+-------------------------------------------------------------------------------
+28 March 2007 
+SHEIN, Bad Aibling
+Steffen Hein <hein@bnro.de>
+-------------------------------------------------------------------------------
+This directory contains the [ DSC model independent ] special sources of the
+DANSE solver, such as solver.c, solvdrv.c, scattr.c, connct.c, etc.

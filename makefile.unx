@@ -1,0 +1,120 @@
+#[ File: danse-1.0r3/makefile.unx ]
+#------------------------------------------------------------------------------#
+#                                                                              #
+#  Makefile for DSC model development package DANSE on GNU/Linux               #
+#  operating system using a GCC/EGC compiler and GNU Make [ or CMake ],        #
+#  and [ optionally ] lncurses.                                                #
+#                                                                              #
+#  (C) SHEIN; Munich, April 2020                               Steffen Hein    #
+#  [ Update: March 20, 2022 ]                               <contact@sfenx.de> #
+#                                                                              #
+#------------------------------------------------------------------------------#
+#                                                                              #
+#  Date created:        March 23, 2011                                         #
+#  Whom:		Steffen Hein <contact@sfenx.de>                        #
+#                                                                              #
+#  $Id: Makefile,v 1.0r3 2011/03/23 12:04:44 danse Exp $                       #
+#                                                                              #
+#------------------------------------------------------------------------------#
+PORTNAME=	danse
+PORTVERSION=	1.0r3
+CATEGORIES=	cad
+MASTER_SITES=	ftp://hein.freeworld.de/pub/dsc/ \
+MASTER_SITE_SUBDIR= ${USER}
+EXTRACT_SUFX=	.src.tar.gz
+
+MAINTAINER=	Steffen Hein <contact@sfenx.de>
+#------------------------------------------------------------------------------#
+DISTNAME=	${PORTNAME}-${PORTVERSION}
+PREFIX=		${HOME}/
+#------------------------------------------------------------------------------#
+# The executables and daemons will be installed into ${HOME}/bin
+# [ usually the DSC home directory, or /usr/local/, e.g. ]
+DSC_HOME=	${PREFIX}
+# with owner and group privileges given to:
+DSC_USR=	${USER}
+DSC_GRP=	users
+#------------------------------------------------------------------------------#
+# The general configuration header
+CONF=		CONFIG.H
+#
+# The C compiler
+#------------------------------------------------------------------------------#
+# Compiler flags:
+#	-ansi		-- stick to ANSI C
+#	-g		-- debugging mode
+#	-Wall		-- low level warnings
+#	-O		-- optimization level 1
+#	-O3		-- optimization level 3
+#       -ffast-math	-- fast floating point operations [ can pose problems
+#                          in conjunction with other optimizations ]
+#
+#-----------------------------------------------------------------------#
+# The C compiler resides here [ write he complete path ]:
+#CCOMPILER=	/usr/local/bin/gcc-4.1
+#CCOMPILER=	/usr/local/bin/gcc295
+#CCOMPILER=	/usr/local/bin/gcc28
+#CCOMPILER=	/usr/local/bin/g77
+#CCOMPILER=	/usr/bin/gcc
+#CCOMPILER=	/usr/bin/cc
+CCOMPILER=	cc
+#
+# Compiler options [ modify for optimal performance ]:
+#FORMER_CC= ${CCOMPILER} -ansi -std=c99 -pedantic -Wall -pipe -mtune=athlon64
+#SOLVER_CC= ${CCOMPILER} -ansi -std=c99 -pedantic -Wall -pipe -mtune=athlon64
+#POSTER_CC= ${CCOMPILER} -ansi -std=c99 -pedantic -Wall -pipe -mtune=athlon64
+FORMER_CC= ${CCOMPILER} -ansi -std=c99 -pedantic -Wall -pipe 
+SOLVER_CC= ${CCOMPILER} -ansi -std=c99 -pedantic -Wall -pipe
+POSTER_CC= ${CCOMPILER} -ansi -std=c99 -pedantic -Wall -pipe
+#
+# Use these flags [ or modify ]:
+# Tentatively take '-ffast-math' instead of 'O3' -- yet both together ! 
+FORMER_CFLG=	-O -D_GNU_Linux -D_CCBUG 
+SOLVER_CFLG=	-O3 -D_GNU_Linux -D_CCBUG 
+POSTER_CFLG=	-O -D_GNU_Linux -D_CCBUG
+#
+# The DSC model generation and evaluation module [ file name ]:
+MODEL=		model.c
+#
+# The three executables [ 3 file names and 1 symlink ]:
+# The solver daemon
+DSC_DMON=	solvd
+
+# This is only a symlink to DSC_DMON
+SOLVER_EXEC=	solver.do
+
+# These are the model dependent executables
+FORMER_EXEC=	former.do
+POSTER_EXEC=	poster.do
+#
+# Find sources in these [ define path ]:
+FORMER_SRC=	former/
+SOLVER_SRC=	solver/
+POSTER_SRC=	poster/
+MATH_SRC=	math/
+TOOLS_SRC=	tools/
+#
+# Compile into directory [ define path ]:
+DSC_PATH=	bin/
+#
+# Libraries 
+# -lncurses: the curses library [ -lncurses_g: the debugging version ]
+#DSC_LIB=	-lm -lncurses_g
+DSC_LIB=	-lm -lncurses
+#DSC_LIB=	-lm
+#
+# Temporarily, store binaries and objects in these directories:
+DSC_BIN=	bin/
+DSC_OBJ=	objects/
+#
+# Install into directories [ define path ]:
+DSC_INST=	${DSC_HOME}bin/
+#
+# Include this for object compilation of scattr(*) and connct(*): 
+SOLVER_INCL=	${DSC_OBJ}scattr.o ${DSC_OBJ}connct.o ${DSC_OBJ}excite.o
+#SOLVER_INCL=	-D_Include
+#
+#.SILENT:
+#------------------------------------------------------------------------------#
+include mk.unx
+#------------------------------------------------------------------------------#

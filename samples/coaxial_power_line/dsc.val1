@@ -1,0 +1,54 @@
+mod_ccoax.G                
+coaxial_line__             
+____________________________________________DSC-MODEL_EVALUATION_FILE_dsc.val1
+iteration_cycles:             12000
+1st_evlt'd_cycle,_Mxwfld:     21
+Lst_evlt'd_cycle,_Mxwfld:     200
+iterations/cycle,_Mxwfld:     20
+1st_evlt'd_cycle,_Ht&Fld:     1
+Lst_evlt'd_cycle,_Ht&Fld:     12000
+iterations/cycle,_Ht&Fld:     10
+
+Maxwell_field_evaluation  
+evaluated_objects             number
+E-ports                       1         
+E-nodes                       0         
+H-ports                       0         
+H-nodes                       0         
+
+Thermal-fluid_evaluation   
+evaluated_objects             number
+heat_current:                 0
+face_temperatures:            9
+node_temperatures:            3
+nodal_velocities:             11
+
+>>-CELL_and_FACE_LABELS,_parameters,_etc->>
+
+8959              8
+14107             3
+14041             2
+14351             3
+14197             2
+14508             3
+14442             2
+14509             2
+14545             2
+14582             2
+14076
+14274
+14472
+14107             0
+14107             2
+14107             1
+14041             1
+14076             1
+14351             1
+14197             1
+14274             1
+14508             1
+14442             1
+14472             1
+
+DSC model evaluation file dsc.val1 created:
+Tue 12 Apr 2022; 12:11:20

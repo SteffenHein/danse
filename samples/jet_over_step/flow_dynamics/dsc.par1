@@ -1,0 +1,80 @@
+PARAMETERS-1
+mod_step.K
+flow_over_step
+FREQUENCY_DOMAIN
+
+25  Parameters
+INTERNATIONAL_UNITS_[if_not_otherwise_specified]
+-------------------------------------------------------------------------------
+s001=frequency________________________________________[Hz]:  1.000000000000e+08
+s002=channel_depth_____________________________________[m]:  1.000000000000e-03
+s003=inflow_width______________________________________[m]:  1.400000000000e-02
+s004=inflow_length_____________________________________[m]:  2.500000000000e-02
+s005=length,_inflow_buffer_____________________________[m]:  1.500000000000e-02
+s006=outflow_width_____________________________________[m]:  4.200000000000e-02
+s007=outflow_length____________________________________[m]:  3.000000000000e-01
+s008=length,_outflow_buffer____________________________[m]:  1.500000000000e-02
+s009=height,_step______________________________[dependent]:  2.800000000000e-02
+s010=length,step_block_________________________________[m]:  1.500000000000e-02
+s011=inflow_temperature____________________________[deg_C]:  0.000000000000e+00
+s012=initial_mean_fluid_temperature________________[deg_C]:  0.000000000000e+00
+s013=mean_density,_fluid__________________________[Kg/m^3]:  9.982000000000e+02
+s014=thermal_expansion_coefficient,_fluid____________[1/K]:  1.000000000000e-07
+s015=adiabatic_compression_coefficient,_fluid_______[1/Pa]:  1.000000000000e-09
+s016=heat_conductivity,_fluid____________________[W/(m*K)]:  5.980000000000e-01
+s017=heat_capacity,_fluid_______________________[J/(Kg*K)]:  4.182200000000e+03
+s018=dynamic_viscosity,_fluid___________________[Kg/(m*s)]:  1.002000000000e-03
+s019=gravitational_acceleration___________[m/sec^2;_fixed]:  9.810000000000e+00
+s020=dissipation_time________________________________[sec]:  0.000000000000e+00
+s021=characteristic_length_____________________________[m]:  0.000000000000e+00
+s022=start_fluid_dynamic_computations_with_that_delay[sec]:  0.000000000000e+00
+s023=inflow_fluid_velocity___________________________[m/s]:  3.000000000000e-01
+s024=coarsening_period_[LES_filter]__________________[sec]:  2.000000000000e-02
+s025=PROPOSED_heat&fluid_time_step_[s]___[later_requested]:  5.000000000000e-04
+
+waveguide_type____________________________________________:  coaxial
+
+[ operation parameters at f = 1.0000000000000001e-01 GHz
+  free_wavelength.............[m]: 2.997924580147872e+00
+  waveguide_wavelength........[m]: 2.997924580147872e+00
+  TEmn_mode_line_impedance__[Ohm]: 3.767303134695850e+02
+  phase_velocity............[m/s]: 2.997924580147872e+08
+  group_velocity............[m/s]: 2.997924580147872e+08 ]
+
+critical_frequency____________________________________[Hz]:  inf
+
+================================================================================
+
+DIVISIONS-1
+mod_step.K
+flow_over_step
+
+8   |divisions,_identifiers,_operation_marks,_etc.
+---------------------------------------------------------------
+n001=ab_divisions,_blocks_1,2_____________________________:  10
+n002=bc_divisions,_block____1_____________________________:  20
+n003=bc_divisions,_block____2_____________________________:  15
+n004=ab_divisions,_block____5_____________________________:  25
+n005=bc_divisions,_blocks_4,5_____________________________:  10
+n006=bc_divisions,_block____3_____________________________:  10
+n007=bc_divisions,_block____6_____________________________: 150
+n008=bc_divisions,_blocks_3,6__________________[dependent]:  35
+
+1   |vertical_[z]domains
+---------------------------------------------------------------
+m001=vertical_divisions___________________________________:   1
+
+================================================================================
+
+OPERATIONS-1
+mod_step.K
+flow_over_step
+
+2   |operations_[computation_modes]
+---------------------------------------------------------------
+c001|reference_line/_structure______________________[void]:   1
+c002|in_channel:_no-slip/_free_slip_boundaries_______[0/1]:   0
+
+DSC model parameter input file dsc.par1 created:
+Tue Apr 19 15:01:34 2022
+ÿ

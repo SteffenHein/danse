@@ -1,0 +1,9 @@
+[ directory: former ] 
+-------------------------------------------------------------------------------
+28 March 2007 
+SHEIN, Bad Aibling
+Steffen Hein <hein@bnro.de>
+-------------------------------------------------------------------------------
+This directory contains [ DSC model independent parts of ] DANSE preprocessing
+sources [ program 'former' ], such as former.c, formdrv.c, smatrx.c, linker.c,
+etc.

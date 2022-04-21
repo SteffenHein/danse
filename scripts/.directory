@@ -1,0 +1,8 @@
+[ directory: scripts ] 
+-------------------------------------------------------------------------------
+28 March 2007 
+SHEIN, Bad Aibling
+Steffen Hein <hein@bnro.de>
+-------------------------------------------------------------------------------
+This directory contains some shell and perl scripts, mainly used for DSC model
+design [ text processing tasks and archive creation routines, e.g.].

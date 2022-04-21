@@ -1,0 +1,21 @@
+[file: poster.md5]
+created: Sat Apr 16 23:57:04 2022
+-------------------------------------------------------------------------------
+MD5( .directory ) = 9407d358b4dce203df6166b7852348bc
+MD5( POSTER.CONF ) = 95189c52f5703e1695907b1558e9b14f
+MD5( fftrf.c ) = 117fe60b12a1e61b4ff761046e5d788b
+MD5( fftyp.h ) = bfbf3583fc0fc9a3f9edfcef0a57002e
+MD5( graphp.c ) = 69a02090171483364593cb049f05f5dd
+MD5( grphtp.h ) = d6fee42f73dce16fbc397dc7169e8022
+MD5( lotos.h ) = 3c9131f76cd66332e37c6e1e66307f03
+MD5( modval.c ) = 725bbb0e9a7acd02a0e83c7c0cb057e8
+MD5( postdrv.c ) = f882113be64c2a2cb715720eaa48f3de
+MD5( poster.c ) = 3a06f400f9e238b745d1f996765448f5
+MD5( posttp.h ) = c65213b55c8518c8c76081427d2e16d8
+MD5( pstprc.c ) = ff6ad053b796c563beb9115e35f2eb9e
+MD5( pstprc.fld ) = 45b736d69ada9ed2a3f9ecb8ec3f6121
+MD5( pstprc.smith ) = 81b2a8d75123ca12ac94020d772cd38a
+MD5( readval.h ) = 8fa4064887c430b7068a43fdd4276078
+MD5( spl.h ) = 1ed441be2d7cca0ffbd4a5cdfe050e2a
+MD5( spline.c ) = bfe14a6b2896b68a1e1de9abba9bba0b
+MD5( transfer.h ) = 7fde1f653bac971236cb036739bd9772

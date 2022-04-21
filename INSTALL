@@ -1,0 +1,138 @@
+[File: INSTALL]
+Installation instructions for the DSC program package DANSE
+-----------------------------------------------------------
+release 1.0r3
+
+March 23, 2011
+Steffen Hein <contact@sfenx.de>
+-------------------------------------------------------------------------------
+1. Copy the package file [ danse-1.0r3.tgz, e.g.] into your home directory
+   or wherever you want to create the build directory [ ~/danse-1.0r3 ].
+-------------------------------------------------------------------------------
+2. Unpack the package using the pertinent decompression and tar commands, 
+   for example:
+                  tar -xvzf danse-1.0r3.tgz
+   or
+                  bunzip2 danse-1.0r3.src.tar.bz2
+                  tar -xvf danse-1.0r3.src.tar
+-------------------------------------------------------------------------------
+3. change into the build directory, created in step 2 [ ~/danse-1.0r3 ], and 
+   set a symbolic link from Makefile to your [ operating system dependent ]
+   makefile in the build directory - which is makefile.unx for a generic Unix
+   system, makefile.bsd for BSD [ BSDI, NetBSD, FreeBSD, OpenBSD, etc.], 
+   makefile.hpux for HP-UNIX, and makefile.lnx for a Linux system, e.g.:
+
+                  ln -s makefile.lnx Makefile
+ 
+   Within your makefile [ makefile.lnx, e.g.] define your preferred program
+   installation path[s], viz. the directory [ or the directories ]  /~
+   wherein the executable programs - here named solver.do, former.do, 
+   and poster.do  - shall reside. Write this/these directory/-ies into your
+   makefile as the three macros SOLVER_INST=/~, FORMER_INST=/~, POSTER_INST=/~.
+   [ By default, all three macros are set to ~/${HOME}/bin/ in the makefiles
+   of the present package. Before using the default, make sure that this
+   directory exists.] Take also care that the chosen directory/-ies lie/s
+   on the search path of your user environment  [ usually, in Unix related
+   systems, and depending on your personal ( user login ) shell, the search
+   path is defined in the .login, .profile, or .bash_profile script of your
+   home directory ], or include the chosen directory/ies into your search path.
+   As a rule, the three installation directories SOLVER_INST, FORMER_INST,
+   and POSTER_INST  should differ from the temporary directory/ies [ used on
+   build time ] SOLVER_PATH, FORMER_PATH, POSTER_PATH, unless you do not use
+   the 'make install' command. [ You can use 'make solver', 'make former',
+   and 'make poster', otherwise ]. Within the makefile, you should also 
+   configure your preferred C compiler options by modifying SOLVER_CC,
+   FORMER_CC, POSTER_CC and the pertinent flags, SOLVER_FLAG, FORMER_FLAG,
+   POSTER_FLAG in the desired fashion [it is highly recommended to use
+   optimization options - in particular, for the computationally expensive
+   DSC core program solver.do [ commonly solvd, cf. below ].
+-------------------------------------------------------------------------------
+4. Copy the [ source code file of the ] DSC model that you want to compile as
+   'model.c' into the build directory [ ~/danse-1.0r3 ] or set a symbolic
+   link from model.c to your DSC model source file, for example:
+  
+                  ln -s models/mod_ccoax model.c
+
+   In ~/danse-1.0r3/models/samples you will find a set of DSC models, named
+   'mod_<identfier>', that should cooperate with the present release.
+   [ Indeed, all the models given in ~/danse-1.0r3/models should work. ]
+   If anything goes wrong with the compilation, ascertain in the first 
+   place that all preprocessor #include instructions are directed correctly. 
+-------------------------------------------------------------------------------
+5. Before compilation, also edit and customize the general configuration header
+   CONFIG.H [ in the build directory ], as well as the special configuration
+   headers SOLVER.CONF, FORMER.CONF, and POSTER.CONF, which respectively
+   reside in the subdirectories solver, former, and poster of the build
+   idirectory, by changing - if necessary or suitable - some array dimensions 
+   [ the maximum number of mesh cells or S-paramater sets, e.g.], in order to
+   comply with the requirements of your special DSC model [ as implemented in 
+   model.c ].
+   [ Of course, the configuration headers are again expected to reside in
+   those - cited - directories during compilation.]
+-------------------------------------------------------------------------------
+6. Within the general configuration header CONFIG.H that resides in the
+   build directory, you may in particular specify your preferred pager,
+   editor, and line printer [ as system call commands ].
+-------------------------------------------------------------------------------
+7. Compile and install the binaries directly into the directories indicated
+   above [ cf. SOLVER_INST,..., POSTER_INST ], by calling SETUP or entering
+   the
+                  make install
+
+   command [ always from the build directory - in eiher case the directories
+   SOLVER_INST,..., POSTER_INST, should differ from the compilation directories
+   SOLVER_PATH,..., POSTER_PATH, respectively ] or compile the binaries into
+   the directories SOLVER_PATH, FORMER_PATH, POSTER_PATH [ specified in
+   Makefile ] by doing separately any, or all, of these commands:
+
+                  make solver
+                  make former
+                  make poster
+
+   In the latter case, you may individually move the compiled binaries [ e.g.
+   solver.do, former.do, poster.do ], with mv ..., to wherever you want to
+   install them.
+-------------------------------------------------------------------------------
+8. Note that you should NOT do a
+
+                  make clean
+
+   unless you are willing to work for a long time with one and the same DSC
+   model [ or you are tight with hard disk space - of course, recompilation of
+   a new model works faster if the many model independent objects need not to
+   be rebuilt, every time ].
+-------------------------------------------------------------------------------
+9. Change into your home directory [ or where you want to run your jobs ]
+   and start the executable programs with commands:
+
+   former.do  [ the preprocessing routine that generates the model dependent 
+                input and output files which can be read by the - model
+                indepedent - DSC core program solver.do, and some files for
+                batch operation ]
+
+   solver.do  [ the DSC core program ]. Presently this is implemented
+                as a symbolic link to the binary 'solvd', which may also
+                be run in background or daemon option [ commands: solvd -b,
+                solvd -d, of course with the correct path <SOLVER_INST> ].
+                The daemon option is particularly suitable for running 	
+                solvd automatically at boot time looking if unfinished jobs
+                are still not marked 'ok' in the batch file [ elf.batch ].
+                The daemon looks for dsc.batch and the five DSC system files
+                [ dsc.top<N>,...,dsc.val<N> ] in the directory DSC_WRK,
+                which to this end must be defined in CONFIG.H. [ of course,
+                the daemon call must be written into the /etc/rc.local script,
+                in that case ].
+
+   poster.do  [ the postprocessing routine that evaluates the results 
+                computed with the DSC core program solver.do. Of course,
+                this part is in general highly model dependent ( and usually
+                controlled in the model dependent fashion by function modval(*)
+                in file model.c).]
+-------------------------------------------------------------------------------
+Thanks for using DANSE
+                          Steffen Hein 
+                                                SHEIN
+                                                Harthauser Str.36K
+                                                DE-83043 Bad Aibling
+                                                mailto:<hein@bnro.de>
+                                                Germany

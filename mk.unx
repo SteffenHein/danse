@@ -1,0 +1,470 @@
+# [ file: mk.gnu ]
+# Update: March 22, 2022
+#-----------------------------------------------------------------------#
+setup: perm ${DSC_INST}${FORMER_EXEC} ${DSC_INST}${SOLVER_EXEC} \
+${DSC_INST}${POSTER_EXEC}
+	@echo ">> ${UP2DT}"
+
+all: setup
+
+solver: perm ${DSC_INST}${SOLVER_EXEC}
+
+former: perm ${DSC_INST}${FORMER_EXEC}
+
+poster: perm ${DSC_INST}${POSTER_EXEC}
+
+model: perm ${DSC_INST}${FORMER_EXEC} ${DSC_INST}${POSTER_EXEC}
+	@echo ">> ${DSCOK}"
+
+${SOLVER_EXEC}: ${DSC_DMON}
+	@echo "===> S-Linking ${DSC_DMON} to ${SOLVER_EXEC}"
+	-ln -fs ${DSC_DMON} ${DSC_PATH}${SOLVER_EXEC}
+
+${DSC_DMON}: ${DSC_PATH}${DSC_DMON}
+	@echo ">> ${READY}"
+
+${FORMER_EXEC}: ${DSC_PATH}${FORMER_EXEC}
+	@echo ">> ${READY}"
+
+${POSTER_EXEC}: ${DSC_PATH}${POSTER_EXEC}
+	@echo ">> ${READY}"
+
+${DSC_INST}${SOLVER_EXEC}: ${DSC_INST}${DSC_DMON}
+	@echo "===> S-Linking ${DSC_DMON} to ${SOLVER_EXEC}"
+	-ln -fs ${DSC_INST}${DSC_DMON} ${DSC_INST}${SOLVER_EXEC}
+
+${DSC_INST}${DSC_DMON}: ${DSC_PATH}${DSC_DMON}
+	@echo "===> Installing ${DSC_DMON} into ${DSC_INST}"
+	@if \
+	mv ${DSC_PATH}${DSC_DMON} ${DSC_INST}${DSC_DMON}; \
+	then \
+	echo ">> ${READY}"; \
+	fi
+
+${DSC_INST}${FORMER_EXEC}: ${DSC_PATH}${FORMER_EXEC}
+	@echo "===> Installing ${FORMER_EXEC} into ${DSC_INST}"
+	@if \
+	mv ${DSC_PATH}${FORMER_EXEC} ${DSC_INST}${FORMER_EXEC}; \
+	then \
+	echo ">> ${READY}"; \
+	fi
+
+${DSC_INST}${POSTER_EXEC}: ${DSC_PATH}${POSTER_EXEC}
+	@echo "===> Installing ${POSTER_EXEC} into ${DSC_INST}"
+	@if \
+	mv ${DSC_PATH}${POSTER_EXEC} ${DSC_INST}${POSTER_EXEC}; \
+	then \
+	echo ">> ${READY}"; \
+	fi
+
+${DSC_PATH}${DSC_DMON}: \
+${SOLVER_SRC}SOLVER.CONF \
+${SOLVER_SRC}solver.c \
+${DSC_OBJ}dsplay.o \
+${DSC_OBJ}lotos.o \
+${DSC_OBJ}dotos.o \
+${DSC_OBJ}txcnsl.o \
+${DSC_OBJ}gradnt.o \
+${DSC_OBJ}grdnts.o \
+${DSC_OBJ}excite.o \
+${DSC_OBJ}trnsvs.o \
+${DSC_OBJ}longtd.o \
+${DSC_OBJ}scattr.o \
+${DSC_OBJ}connct.o \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}gssjpv.o \
+${DSC_OBJ}jacobi.o \
+${DSC_OBJ}dminit.o
+	@echo "===> Binding executable ${DSC_DMON}"
+	@echo "${SOLVER_CC} ${SOLVER_CFLG} ${SOLVER_INCL} \
+	${SOLVER_SRC}solver.c ..."
+	@${SOLVER_CC} ${SOLVER_CFLG} ${SOLVER_INCL} \
+${SOLVER_SRC}solver.c \
+${DSC_OBJ}dsplay.o \
+${DSC_OBJ}lotos.o \
+${DSC_OBJ}dotos.o \
+${DSC_OBJ}txcnsl.o \
+${DSC_OBJ}gradnt.o \
+${DSC_OBJ}grdnts.o \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}gssjpv.o \
+${DSC_OBJ}jacobi.o \
+${DSC_OBJ}trnsvs.o \
+${DSC_OBJ}longtd.o \
+${DSC_OBJ}dminit.o \
+-o ${DSC_PATH}${DSC_DMON} ${DSC_LIB}
+
+${DSC_PATH}${FORMER_EXEC}: \
+${DSC_OBJ}former.o \
+${DSC_OBJ}formdrv.o \
+${DSC_OBJ}linker.o \
+${DSC_OBJ}cshape.o \
+${DSC_OBJ}smatrx.o \
+${DSC_OBJ}hcrsmx.o \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}gssjpv.o \
+${DSC_OBJ}jacobi.o \
+${DSC_OBJ}triads.o \
+${DSC_OBJ}dsplay.o \
+${DSC_OBJ}lotos.o \
+${DSC_OBJ}dotos.o \
+${DSC_OBJ}txcnsl.o \
+${DSC_OBJ}cpylne.o \
+${DSC_OBJ}sysplt.o \
+${DSC_OBJ}model1.o
+	@echo "===> Binding executable ${FORMER_EXEC}"
+	@echo "${FORMER_CC} ${FORMER_CFLG} ${DSC_OBJ}former.o ..."
+	@${FORMER_CC} ${FORMER_CFLG} \
+${DSC_OBJ}former.o \
+${DSC_OBJ}formdrv.o \
+${DSC_OBJ}linker.o \
+${DSC_OBJ}cshape.o \
+${DSC_OBJ}smatrx.o \
+${DSC_OBJ}hcrsmx.o \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}gssjpv.o \
+${DSC_OBJ}jacobi.o \
+${DSC_OBJ}triads.o \
+${DSC_OBJ}dsplay.o \
+${DSC_OBJ}lotos.o \
+${DSC_OBJ}dotos.o \
+${DSC_OBJ}txcnsl.o \
+${DSC_OBJ}cpylne.o \
+${DSC_OBJ}sysplt.o \
+${DSC_OBJ}model1.o \
+-o ${DSC_PATH}${FORMER_EXEC} ${DSC_LIB}
+
+${DSC_PATH}${POSTER_EXEC}: \
+${DSC_OBJ}poster.o \
+${DSC_OBJ}postdrv.o \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}fftrf.o \
+${DSC_OBJ}lotos.o \
+${DSC_OBJ}dotos.o \
+${DSC_OBJ}rndoff.o \
+${DSC_OBJ}spline.o \
+${DSC_OBJ}graphp.o \
+${DSC_OBJ}txcnsl.o \
+${DSC_OBJ}model2.o
+	@echo "===> Binding executable ${POSTER_EXEC}"
+	@echo "${POSTER_CC} ${POSTER_CFLG} ${DSC_OBJ}poster.o ..."
+	@${POSTER_CC} ${POSTER_CFLG} \
+${DSC_OBJ}poster.o \
+${DSC_OBJ}postdrv.o \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}fftrf.o \
+${DSC_OBJ}lotos.o \
+${DSC_OBJ}dotos.o \
+${DSC_OBJ}rndoff.o \
+${DSC_OBJ}spline.o \
+${DSC_OBJ}graphp.o \
+${DSC_OBJ}txcnsl.o \
+${DSC_OBJ}model2.o \
+-o ${DSC_PATH}${POSTER_EXEC} ${DSC_LIB}
+
+${DSC_OBJ}former.o: ${CONF} ${FORMER_SRC}*.CONF ${FORMER_SRC}formtp.h \
+${FORMER_SRC}former.c
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}former.c \
+-o ${DSC_OBJ}former.o
+
+${DSC_OBJ}poster.o: ${CONF} ${POSTER_SRC}*.CONF ${POSTER_SRC}poster.c
+	${POSTER_CC} ${POSTER_CFLG} -c ${POSTER_SRC}poster.c \
+-o ${DSC_OBJ}poster.o
+
+${DSC_OBJ}formdrv.o: ${CONF} ${FORMER_SRC}*.CONF ${FORMER_SRC}formtp.h \
+${FORMER_SRC}formdrv.c
+	@echo "===> Building driver"
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}formdrv.c \
+-o ${DSC_OBJ}formdrv.o
+
+${DSC_OBJ}linker.o: ${CONF} ${FORMER_SRC}*.CONF ${FORMER_SRC}linker.c
+	@echo "===> Building linker(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}linker.c \
+-o ${DSC_OBJ}linker.o
+
+${DSC_OBJ}cshape.o: ${CONF} ${FORMER_SRC}cshape.c ${DSC_OBJ}triads.o
+	@echo "===> Building cshape(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}cshape.c \
+-o ${DSC_OBJ}cshape.o
+
+${DSC_OBJ}smatrx.o: \
+${CONF} \
+${FORMER_SRC}FORMER.CONF \
+${FORMER_SRC}smatrx.c \
+${DSC_OBJ}gssjrd.o \
+${DSC_OBJ}gssjpv.o \
+${DSC_OBJ}jacobi.o \
+${DSC_OBJ}triads.o 
+	@echo "===> Building smatrx(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}smatrx.c \
+-o ${DSC_OBJ}smatrx.o
+
+${DSC_OBJ}gradnt.o: ${CONF} ${SOLVER_SRC}gradnt.c
+	@echo "===> Building gradnt(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}gradnt.c \
+-o ${DSC_OBJ}gradnt.o
+
+${DSC_OBJ}grdnts.o: ${CONF} ${SOLVER_SRC}grdnts.c
+	@echo "===> Building grdnts(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}grdnts.c \
+-o ${DSC_OBJ}grdnts.o
+
+${DSC_OBJ}gssjrd.o: ${CONF} ${MATH_SRC}gssjrd.c
+	@echo "===> Building gssjrd(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${MATH_SRC}gssjrd.c \
+-o ${DSC_OBJ}gssjrd.o
+
+${DSC_OBJ}gssjpv.o: ${CONF} ${MATH_SRC}gssjpv.c
+	@echo "===> Building gssjpv(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${MATH_SRC}gssjpv.c \
+-o ${DSC_OBJ}gssjpv.o
+
+${DSC_OBJ}jacobi.o: ${CONF} ${MATH_SRC}jacobi.c
+	@echo "===> Building jacobi(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${MATH_SRC}jacobi.c \
+-o ${DSC_OBJ}jacobi.o
+
+${DSC_OBJ}triads.o: ${MATH_SRC}triads.c
+	@echo "===> Building triads(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${MATH_SRC}triads.c \
+-o ${DSC_OBJ}triads.o
+
+${DSC_OBJ}hcrsmx.o: ${CONF} ${FORMER_SRC}*.CONF ${FORMER_SRC}hcrsmx.c \
+${DSC_OBJ}triads.o
+	@echo "===> Building hcrsmx(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}hcrsmx.c \
+-o ${DSC_OBJ}hcrsmx.o
+
+${DSC_OBJ}dsplay.o: ${CONF} ${SOLVER_SRC}dsplay.c
+	@echo "===> Building dsplay(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}dsplay.c \
+-o ${DSC_OBJ}dsplay.o
+
+${DSC_OBJ}lotos.o: ${CONF} ${MATH_SRC}lotos.c
+	@echo "===> Building lotos(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${MATH_SRC}lotos.c \
+-o ${DSC_OBJ}lotos.o
+
+${DSC_OBJ}dotos.o: ${CONF} ${MATH_SRC}dotos.c
+	@echo "===> Building dotos(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${MATH_SRC}dotos.c \
+-o ${DSC_OBJ}dotos.o
+
+${DSC_OBJ}rndoff.o: ${CONF} ${MATH_SRC}rndoff.c
+	@echo "===> Building rndoff(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${MATH_SRC}rndoff.c \
+-o ${DSC_OBJ}rndoff.o
+
+${DSC_OBJ}txcnsl.o: ${CONF} ${TOOLS_SRC}txctyp.h ${TOOLS_SRC}txcnsl.c
+	@echo "===> Building txcnsl(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${TOOLS_SRC}txcnsl.c \
+-o ${DSC_OBJ}txcnsl.o
+
+${DSC_OBJ}cpylne.o: ${CONF} ${TOOLS_SRC}cpylne.c
+	@echo "===> Building cpylne(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${TOOLS_SRC}cpylne.c \
+-o ${DSC_OBJ}cpylne.o
+
+${DSC_OBJ}cllsts.o: ${CONF} ${SOLVER_SRC}cllsts.c ${SOLVER_SRC}cllstp.h
+	@echo "===> Building cllsts(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}cllsts.c \
+-o ${DSC_OBJ}cllsts.o
+
+${DSC_OBJ}excite.o: ${CONF} ${SOLVER_SRC}excite.c ${SOLVER_SRC}solvtp.h
+	@echo "===> Building excite(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}excite.c \
+-o ${DSC_OBJ}excite.o
+
+${DSC_OBJ}scattr.o: ${CONF} ${SOLVER_SRC}*.CONF ${SOLVER_SRC}solvtp.h \
+${SOLVER_SRC}scattr.c ${SOLVER_SRC}scatfld.c ${SOLVER_SRC}scathcr.c \
+${SOLVER_SRC}sctflow.c
+	@echo "===> Building scattr(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}scattr.c \
+-o ${DSC_OBJ}scattr.o
+
+${DSC_OBJ}scatfld.o: ${CONF} ${SOLVER_SRC}scatfld.c ${SOLVER_SRC}solvtp.h
+	@echo "===> Building scatfld(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}scatfld.c \
+-o ${DSC_OBJ}scatfld.o
+
+${DSC_OBJ}scathcr.o: ${CONF} ${SOLVER_SRC}scathcr.c ${SOLVER_SRC}solvtp.h
+	@echo "===> Building scathcr(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}scathcr.c \
+-o ${DSC_OBJ}scathcr.o
+
+${DSC_OBJ}sctflow.o: ${CONF} ${SOLVER_SRC}sctflow.c ${SOLVER_SRC}solvtp.h
+	@echo "===> Building sctflow(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}sctflow.c \
+-o ${DSC_OBJ}sctflow.o
+
+${DSC_OBJ}MXW_functions.o: ${CONF} ${SOLVER_SRC}MXW_functions.c \
+${SOLVER_SRC}solvtp.h
+	@echo "===> Building MXW_functions(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}MXW_functions.c \
+-o ${DSC_OBJ}MXW_functions.o
+
+${DSC_OBJ}CFD_functions.o: ${CONF} ${SOLVER_SRC}CFD_functions.c \
+${SOLVER_SRC}solvtp.h
+	@echo "===> Building CFD_functions(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}CFD_functions.c \
+-o ${DSC_OBJ}CFD_functions.o
+
+${DSC_OBJ}connct.o: ${CONF} ${SOLVER_SRC}*.CONF ${SOLVER_SRC}solvtp.h \
+${SOLVER_SRC}connct.c ${SOLVER_SRC}cnctfld.c ${SOLVER_SRC}cncthcr.c \
+${SOLVER_SRC}conflow.c ${SOLVER_SRC}lesflt.c
+	@echo "===> Building connct(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}connct.c \
+-o ${DSC_OBJ}connct.o
+
+${DSC_OBJ}cnctfld.o: ${CONF} ${SOLVER_SRC}*.CONF ${SOLVER_SRC}cnctfld.c \
+${SOLVER_SRC}solvtp.h
+	@echo "===> Building cnctfld(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}cnctfld.c \
+-o ${DSC_OBJ}cnctfld.o
+
+${DSC_OBJ}cncthcr.o: ${CONF} ${SOLVER_SRC}*.CONF ${SOLVER_SRC}cncthcr.c \
+${SOLVER_SRC}solvtp.h
+	@echo "===> Building cncthcr(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}cncthcr.c \
+-o ${DSC_OBJ}cncthcr.o
+
+${DSC_OBJ}conflow.o: ${CONF} ${SOLVER_SRC}*.CONF ${SOLVER_SRC}conflow.c \
+${SOLVER_SRC}solvtp.h
+	@echo "===> Building conflow(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}conflow.c \
+-o ${DSC_OBJ}conflow.o
+
+${DSC_OBJ}lesflt.o: ${CONF} ${SOLVER_SRC}*.CONF ${SOLVER_SRC}lesflt.c \
+${SOLVER_SRC}solvtp.h
+	@echo "===> Building lesfilter(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}lesflt.c \
+-o ${DSC_OBJ}lesflt.o
+
+${DSC_OBJ}trnsvs.o: ${CONF} ${MATH_SRC}trnsvs.c
+	@echo "===> Building trnsvs(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${MATH_SRC}trnsvs.c \
+-o ${DSC_OBJ}trnsvs.o
+
+${DSC_OBJ}longtd.o: ${CONF} ${MATH_SRC}longtd.c
+	@echo "===> Building longtd(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${MATH_SRC}longtd.c \
+-o ${DSC_OBJ}longtd.o
+
+${DSC_OBJ}dminit.o: ${CONF} ${SOLVER_SRC}SOLVER.CONF ${SOLVER_SRC}dminit.c
+	@echo "===> Building dminit(*)"
+	${SOLVER_CC} ${SOLVER_CFLG} -c ${SOLVER_SRC}dminit.c -o \
+${DSC_OBJ}dminit.o
+
+${DSC_OBJ}sysplt.o: ${CONF} ${FORMER_SRC}sspltp.h ${FORMER_SRC}sysplt.c
+	@echo "===> Building sysplt(*)"
+	${FORMER_CC} ${FORMER_CFLG} -c ${FORMER_SRC}sysplt.c \
+-o ${DSC_OBJ}sysplt.o
+
+${DSC_OBJ}postdrv.o: ${CONF} ${POSTER_SRC}POSTER.CONF \
+${DSC_OBJ}rndoff.o \
+${POSTER_SRC}postdrv.c \
+${POSTER_SRC}readval.h
+	@echo "===> Building driver"
+	${POSTER_CC} ${POSTER_CFLG} -c ${POSTER_SRC}postdrv.c \
+-o ${DSC_OBJ}postdrv.o
+
+${DSC_OBJ}fftrf.o: ${CONF} ${POSTER_SRC}POSTER.CONF ${MATH_SRC}fftrf.c
+	@echo "===> Building fftrf(*)"
+	${POSTER_CC} ${POSTER_CFLG} -c ${MATH_SRC}fftrf.c \
+-o ${DSC_OBJ}fftrf.o
+
+${DSC_OBJ}spline.o: ${CONF} ${POSTER_SRC}POSTER.CONF ${POSTER_SRC}spline.c
+	@echo "===> Building spline(*)"
+	${POSTER_CC} ${POSTER_CFLG} -c ${POSTER_SRC}spline.c \
+-o ${DSC_OBJ}spline.o
+
+${DSC_OBJ}graphp.o: ${CONF} ${POSTER_SRC}POSTER.CONF \
+${POSTER_SRC}graphp.c \
+${DSC_OBJ}rndoff.o
+	@echo "===> Building graphp(*)"
+	${POSTER_CC} ${POSTER_CFLG} -c ${POSTER_SRC}graphp.c \
+-o ${DSC_OBJ}graphp.o
+
+${DSC_OBJ}pprcss.o: ${CONF} ${TOOLS_SRC}pprcss.c
+	@echo "===> Building pprcss(*)"
+	${POSTER_CC} ${POSTER_CFLG} -c ${TOOLS_SRC}pprcss.c \
+-o ${DSC_OBJ}pprcss.o
+
+${DSC_OBJ}smithchrt.o: ${CONF} ${TOOLS_SRC}smithchrt.c
+	@echo "===> Building smithchrt(*)"
+	${POSTER_CC} ${POSTER_CFLG} -c ${TOOLS_SRC}smithchrt.c \
+-o ${DSC_OBJ}smithchrt.o
+
+# build the model dependent objects: */
+
+${DSC_OBJ}model1.o: ${CONF} ${FORMER_SRC}FORMER.CONF ${MODEL} \
+${TOOLS_SRC}panels.h \
+${TOOLS_SRC}inputs.h
+	@echo "===> Building DSC model"
+	@if \
+	${FORMER_CC} ${FORMER_CFLG} -c -D_PRE_MODEL ${MODEL} \
+-o ${DSC_OBJ}model1.o; \
+	then \
+	echo ">> ${NICE}"; \
+	fi
+
+${DSC_OBJ}model2.o: ${CONF} ${POSTER_SRC}POSTER.CONF ${MODEL}
+	@echo "===> Building DSC model evaluator"
+	@if \
+	${POSTER_CC} ${POSTER_CFLG} -c -D_POST_MODEL ${MODEL} \
+-o ${DSC_OBJ}model2.o; \
+	then \
+	echo ">> ${NICE}"; \
+	fi
+
+# install all binaries [ in directories ..._INST ]:
+install: setup
+	@echo "===> Fixing permissions"
+	-@chown -f ${DSC_USR} ${DSC_INST}
+	-@chgrp -f ${DSC_GRP} ${DSC_INST}
+	-@chmod -f u=rwx,g=rwx,o=rwx ${DSC_INST}${DSC_DMON}
+	-@chmod -f u=rwx,g=rwx,o=rwx ${DSC_INST}${FORMER_EXEC}
+	-@chmod -f u=rwx,g=rwx,o=rwx ${DSC_INST}${SOLVER_EXEC}
+	-@chmod -f u=rwx,g=rwx,o=rwx ${DSC_INST}${POSTER_EXEC}
+
+# deinstall binary programs [ in directories ..._INST ]:
+deinstall: perm
+	@echo "===> Deinstalling ${DISTNAME}"
+	@echo "===> Cleaning objects"
+	-rm -f ${DSC_OBJ}*.o
+	@echo "===> Cleaning for solver"
+	-rm -f ${DSC_INST}${SOLVER_EXEC}
+	-rm -f ${DSC_PATH}${DSC_DMON}
+	@echo "===> Cleaning for former"
+	-rm -f ${DSC_INST}${FORMER_EXEC}
+	-rm -f ${DSC_PATH}${FORMER_EXEC}
+	@echo "===> Cleaning for poster"
+	-rm -f ${DSC_INST}${POSTER_EXEC}
+	-rm -f ${DSC_PATH}${POSTER_EXEC}
+
+# clean binary programs [ in directories ..._PATH ] and all object files:
+clean: perm
+	@echo "===> Cleaning for ${DISTNAME}"
+	@echo "===> Cleaning objects"
+	-rm -f ${DSC_OBJ}*.o
+	@echo "===> Cleaning for solver"
+	-rm -f ${DSC_PATH}${DSC_DMON}
+	-rm -f ${DSC_PATH}${SOLVER_EXEC}
+	@echo "===> Cleaning for former"
+	-rm -f ${DSC_PATH}${FORMER_EXEC}
+	@echo "===> Cleaning for poster"
+	-rm -f ${DSC_PATH}${POSTER_EXEC}
+	@echo ">> ${CLEAN}"
+
+perm:
+	-@chmod -f u=rwx,g=rwx,o=rwx ${DSC_OBJ}
+	-@chmod -f u=rwx,g=rwx,o=rwx ${DSC_BIN}
+
+# reinstall binary programs [ in directories ..._INST ]:
+reinstall: clean install
+#-----------------------------------------------------------------------#
+NICE=Looks nice ...
+READY=OK, done !
+DSCOK=DSC model OK !
+UP2DT=Binaries up to date
+CLEAN=Terminated

@@ -1,0 +1,8 @@
+[ directory: poster ] 
+-------------------------------------------------------------------------------
+28 March 2007 
+SHEIN, Bad Aibling
+Steffen Hein <hein@bnro.de>
+-------------------------------------------------------------------------------
+This directory contains [ DSC model independent parts of ] DANSE postprocessing
+sources, such as poster.c, postdrv.c, etc.

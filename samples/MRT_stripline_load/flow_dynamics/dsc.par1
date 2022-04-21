@@ -1,0 +1,115 @@
+PARAMETERS-1
+mod_load.A
+stripline_load
+FREQUENCY_DOMAIN
+
+52  parameters,_lengths[m],_etc.:
+INTERNATIONAL_UNITS_[if_not_otherwise_specified]
+-------------------------------------------------------------------------------
+s001=frequency________________________________________[Hz]:  1.230000000000e+08
+s002=length,_source_line_______________________________[m]:  2.000000000000e-02
+s003=length,_buffer_$_termination_line_________________[m]:  1.000000000000e-02
+s004=length,_absorber__________________________________[m]:  2.000000000000e-03
+s005=width,_strip_line_________________________________[m]:  7.000000000000e-03
+s006=width,_substrate__________________________________[m]:  2.200000000000e-02
+s007=height,_substrate_________________________________[m]:  1.600000000000e-03
+s008=height,_cavity____________________________________[m]:  1.300000000000e-02
+s009=[exterior]_width,_absorber________________________[m]:  3.600000000000e-02
+s010=[exterior]_height,_absorber_______________________[m]:  5.000000000000e-02
+s011=diameter,_cooling_tubes___________________________[m]:  1.050000000000e-02
+s012=distance,_cooling_tubes___________________________[m]:  1.300000000000e-02
+s013=thickness,_boundary_layer_________________________[m]:  1.000000000000e-04
+s014=relative_permittivity,_substrate_____________________:  6.500000000000e+00
+s015=tangent_delta,_substrate_____________________________:  0.000000000000e+00
+s016=equivalent_loss_curr_conductivity____[S/m;_dependent]:  0.000000000000e+00
+s017=heat_capacity,_substrate__________________[J/(K*m^3)]:  2.918400000000e+06
+s018=heat_conductivity,_substrate________________[W/(K*m)]:  2.480000000000e+02
+s019=temperature,_coolant__________________________[deg_C]:  2.000000000000e+01
+s020=temperature,_environment______________________[deg_C]:  2.000000000000e+01
+s021=surface-environment_heat_conductivity_____[W/(K*m^2)]:  5.000000000000e+00
+s022=mean_inner_temperature________________________[deg_C]:  2.000000000000e+01
+s023=inner_[mean]_surface_heat_conductivity____[W/(K*m^2)]:  5.000000000000e+00
+s024=mean_transmitted_power____________________________[W]:  1.750000000000e+03
+s025=power_normalization_factor_____[modify_with_care_!!!]:  3.552350000000e+00
+s026=conductivity,_strip_line_____________[S/m;_dependent]:  1.000000000000e+04
+s027=skin_effect_surface_resistance______[Ohms;_dependent]:  2.203598276728e-01
+s028=penetration_depth______________________[m;_dependent]:  4.538032229200e-04
+s029=heat_capacity,_cavity_____________________[J/(K*m^3)]:  2.680000000000e+06
+s030=heat_conductivity,_cavity___________________[W/(K*m)]:  1.100000000000e+02
+s031=heat_capacity,_coolant____________________[J/(K*m^3)]:  4.174500000000e+06
+s032=heat_conductivity,_coolant__________________[W/(K*m)]:  5.980000000000e-01
+s033=thickness,_cooling_block_[between_substrates]_____[m]:  1.900000000000e-02
+s034=Nusselt_number,_coolant_______________[dimensionless]:  6.125000000000e+01
+s035=equiv_heat_condct,_bndry_layer___[W/(m*K);_dependent]:  3.521983545069e-01
+s036=electric_sources,_1st_hold_time_________________[sec]:  5.000000000000e-03
+s037=dito,_1st_delay_time____________________________[sec]:  4.500000000000e-02
+s038=dito,_2nd_hold_time_____________________________[sec]:  8.000000000000e-01
+s039=dito,_2nd_delay_time____________________________[sec]:  8.000000000000e-01
+s040=duty_cycle________________________________[dependent]:  2.000000000000e+01
+s041=initial_mean_temperature,_gas_________________[deg_C]:  0.000000000000e+00
+s042=mean_density,_gas____________________________[Kg/m^3]:  9.998000000000e-01
+s043=thermal_expansion_coeff,_gas____________________[1/K]:  2.838000000000e-03
+s044=heat_conductivity,_gas______________________[W/(m*K)]:  2.990000000000e-02
+s045=heat_capacity,_gas_________________________[J/(Kg*K)]:  1.007200000000e+03
+s046=dynamic_viscosity,_gas___________________[Kg/(m*sec)]:  2.100000000000e-05
+s047=Cp/Cv-1_______________________________[dimensionless]:  0.000000000000e+00
+s048=dissipation_time________________________________[sec]:  0.000000000000e+00
+s049=Prandtl_characteristic_length_____________________[m]:  0.000000000000e+00
+s050=gravitational_acceleration__________________[m/sec^2]:  9.810000000000e+00
+s051=coarsening_period_[LES_filter]__________________[sec]:  2.000000000000e-03
+s052=PROPOSED_heat&fluid_time_step_[s]___[later_requested]:  1.900000000000e-04
+
+waveguide_type____________________________________________:  coax
+
+[ operation parameters at f = 1.2300000000000001e-01 GHz
+  free_wavelength.............[m]: 2.437337057030790e+00
+  waveguide_wavelength........[m]: 2.437337057030790e+00
+  TEmn_mode_line_impedance__[Ohm]: 3.767303134695850e+02
+  phase_velocity............[m/s]: 2.997924580147872e+08
+  group_velocity............[m/s]: 2.997924580147872e+08 ]
+
+critical_frequency____________________________________[Hz]:  inf
+
+================================================================================
+
+DIVISIONS-1
+mod_load.A
+stripline_load
+
+13  |divisions,_identifiers,_operation_marks,_etc.
+---------------------------------------------------------------
+n001=bc_divisions,_blocks__1,3____________________________:  20
+n002=bc_divisions,_blocks__2,4____________________________:   5
+n003=ab_divisions,_blocks__1,3____________________________:   9
+n004=ab_divisions,_blocks__2,4____________________________:  15
+n005=ab_divisions,_block___6,7____________________________:   3
+n006=bc_divisions,_block_____6____________________________:   5
+n007=bc_divisions,_blocks_7,8,9,12________________________:   5
+n008=ab_divisions,_blocks_9,10____________________________:   3
+n009=bc_divisions,_blocks_10,11___________________________:   5
+n010=ab_divisions,_block_____8_________________[dependent]:  18
+n011=ab_divisions,_block_____5_________________[dependent]:  28
+n012=bc_divisions,_block_____5____________________________:   2
+n013=ab_divisions,_blocks_11,12,..._______________________:   5
+
+4   |vertical_[z]domains:                               
+---------------------------------------------------------------
+m001=vertical_divisions,_1st_domain_______________________:  20
+m002=vertical_divisions,_2nd_domain_______________________:  10
+m003=vertical_divisions,_3rd_domain_______________________:   2
+m004=vertical_divisions,_4th_domain_______________________:  10
+
+================================================================================
+
+OPERATIONS-1
+mod_load.A
+stripline_load
+
+2   |operations_[computation_modes]
+---------------------------------------------------------------
+c001|reference_line_/_stripline_load_________________[0/1]:   1
+c002|time_/_frequency_domain_________________________[0/1]:   1
+
+DSC model parameter input file dsc.par1 created:
+Tue Apr 12 15:44:12 2022
+ÿ

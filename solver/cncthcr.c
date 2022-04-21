@@ -1,0 +1,46 @@
+/* [ file: cncthcr.c ] */
+/*******************************************************************************
+*                                                                              *
+*   Function cncthcr(*)                                                        *
+*   [ DANSE - Discrete Approximation of the Navier Stokes Equations,           *
+*     release 1.0r3 ]                                                          *
+*                                                                              *
+*   DSC diffusive heat currents connection map                                 *
+*   [ convective heat currents and fluid flows are separately connected        *
+*     in function conflow(*) ]                                                 *
+*                                                                              *
+*   (C) SHEIN; Bad Aibling, October 2007                   Steffen Hein        *
+*   [ Update: April 05, 2022 ]                          <contact@sfenx.de>     *
+*                                                                              *
+*******************************************************************************/
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
+/*----------------------------------------------------------------------------*/
+# include "../math/maths.h"  /* 'my' computation environment headers */
+# include "../math/consts.h" /* some frequently used constants */
+/*----------------------------------------------------------------------------*/
+# if defined ( OPTIMIZE )
+   # pragma OPT_LEVEL 3
+   # pragma OPTIMIZE ON
+# endif
+/*----------------------------------------------------------------------------*/
+/* Edit and customize this general configuration header: */
+# include "../CONFIG.H" 
+/*----------------------------------------------------------------------------*/
+/* Edit and customize solver configuration header SOLVER.CONF */
+# include "./SOLVER.CONF"
+/*----------------------------------------------------------------------------*/
+# if DSC_HCRMDE != 0
+/*----------------------------------------------------------------------------*/
+# include "./solvtp.h"
+/*----------------------------------------------------------------------------*/
+/* configuration header */
+# include "./CNCTHCR.CONF"
+/*============================================================================*/
+/* function body */
+# include "./cncthcr.h"
+/*============================================================================*/
+/*************** end of thermal connection function cncthcr(*) ****************/
+# endif /* DSC_HCRMDE != 0 */
+/*************************** end of file cncthcr.c ****************************/

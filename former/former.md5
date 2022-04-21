@@ -1,0 +1,24 @@
+[file: former.md5]
+created: Sat Apr 16 23:57:04 2022
+-------------------------------------------------------------------------------
+MD5( .directory ) = 387e86469a4dc00f906e7da1f1f2f787
+MD5( FORMER.CONF ) = 7bc27c1ce02a976552d9264a14743b4c
+MD5( cshape.c ) = 28f64e594d5a7ad26f8d28b74801af1c
+MD5( cshptp.h ) = eb89674c99d93c21ec90dc3b54cdf010
+MD5( dsptyp.h ) = b59d5d93ca54c338c41840099dd67119
+MD5( formdrv.c ) = 37de9a9f49f570000d9038c6e7f6cd59
+MD5( former.c ) = 7b62b8b0822cd6a73547be34f3dbe9a7
+MD5( formtp.h ) = 840435494afec91bb5a551fe71e4fa7f
+MD5( gssjtp.h ) = c96917225555b855c523088eedb4e571
+MD5( hcrsmx.c ) = e8c443ebc2b39e120e6f96662f728b64
+MD5( hcrstp.h ) = dd8f44bebbfac5c2896ee1349af50135
+MD5( jacbtp.h ) = e89439014a4e7d305b17d6f108877370
+MD5( jacobi.c ) = 4a61aeed2a8682c644d3149cf1d2d4d2
+MD5( jacobi.h ) = 1ec8b7fbe02aa2c81bc531b234e79d38
+MD5( linker.c ) = b98b4fd5cc4382592eb55f6d0d5ceb7c
+MD5( repeater.h ) = 274f95e270da020e1297ebc85d41c487
+MD5( smatrx.c ) = ff6b485f59520e605274f133f848eaff
+MD5( smxtyp.h ) = c8373ba4953b53572c3337037e1ea6e3
+MD5( sspltp.h ) = d328cebf9b87abc17bf3350428f14bf0
+MD5( sysplt.c ) = 7aff09850b3ac51fda4f96bdadd7fc27
+MD5( transfer.h ) = c9662d109af219ebbc2d43de90be66e1

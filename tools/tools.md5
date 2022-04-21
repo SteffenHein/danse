@@ -1,0 +1,47 @@
+[file: tools.md5]
+created: Sat Apr 16 23:57:04 2022
+-------------------------------------------------------------------------------
+MD5( .directory ) = 4dbfa96775680ba9268c8a6ad90d8a58
+MD5( TIMEFORM.M ) = 6dcbb0948f01a6e03e0f2f893bb076f2
+MD5( blcdcl.h ) = d29397182eaea4bcb2adddc4b3763130
+MD5( blcutls.h ) = 1abb6b7a4bccb4760d3d303ed67f4e1a
+MD5( bndrfl.h ) = c10857ede6779a1f6124fe9c71282396
+MD5( cllcrd.h ) = c699b48bd898332da142d7ee72bb9f3f
+MD5( cllctp.h ) = 24b06c0dad1e1841e733ab8c66c2825b
+MD5( cllstp.h ) = 8074c5e87e31a5ed254a69bc338b3e5e
+MD5( cpylne.c ) = 412ddac64433395996b4d5f5ee22153b
+MD5( cshape.c ) = 421bda985e2333432a06fcd907152a74
+MD5( cshptp.h ) = c5d504279522df7844ac61c61bf0c7f7
+MD5( dsptyp.h ) = f665115400872d2e60b062b892010394
+MD5( ellwve.h ) = f4f2dd117ad64a5f29e51114695d47e8
+MD5( excfld.h ) = 52ffb362cca0f3ff1c57fec41da987bd
+MD5( inputs.h ) = c5260cc8aa1fa54150824248dbafd735
+MD5( panels.h ) = ded8562f961a799763c4cc8db00bb924
+MD5( pstprc.c ) = ff6ad053b796c563beb9115e35f2eb9e
+MD5( pstprc.dummy ) = 44d2d5aa1e580d1290ae3c5df8b1feb8
+MD5( pstprc.fld ) = 45b736d69ada9ed2a3f9ecb8ec3f6121
+MD5( pstprc.h ) = 9465bb1910db281f797e012b36a54b41
+MD5( pstprc.smith ) = 482d232b8339e9ef6330a08cebc584b3
+MD5( pstprc2.h ) = 5778ed833b4f7260267e4e9a3dd15203
+MD5( puzzab.h ) = c247888c06094fee5d8e8e4237f778eb
+MD5( puzzle.h ) = 76ef03c6a04e366be95166dce8674e7b
+MD5( qudrl.h ) = 2aa105d829d31b17f35cad067609805a
+MD5( readdiv.h ) = 58683615255fa3ef7a3dbc402ca48257
+MD5( readopr.h ) = 83a2e763037f256d99969436c5b1a064
+MD5( readpar.h ) = 05cc5106cf3e1b6af195b11fca818339
+MD5( readval.h ) = f6c36d4d1b2d21466b0ab1f5b638a56a
+MD5( setmed.h ) = aab6e9a8a1b51e210d9b88c59febcf7f
+MD5( setmtp.h ) = eda6c37e1fc875520edf977aea42ba85
+MD5( smithchrt.c ) = 36059b42e163b272815ad83b76e2cc19
+MD5( smithchrt.h ) = 2d954519791adbb753f11aebfeaac301
+MD5( solvtp.h ) = 0bd09c4828ce90e10abf4048b1026c43
+MD5( sspltp.h ) = 1c95cf45634d68bc72743d6efc13cb2d
+MD5( storediv.h ) = a464957b6b0331d1fe47523f3f57a4fb
+MD5( storeopr.h ) = 526ab25ab4a4259454ff168488d96b3b
+MD5( storepar.h ) = f64238ebcb2a443e6716d29e9799b118
+MD5( sysplt.c ) = fba31a2280590d4d24de778aa032f7e7
+MD5( sysptp.h ) = 1c95cf45634d68bc72743d6efc13cb2d
+MD5( trngl.h ) = a0fd22c3b3c05224d8cfd779a9d21449
+MD5( txcnsl.c ) = c76835421dcf50be4c2c1e64c4115549
+MD5( txctyp.h ) = a2d9f46b28abf54276ebe55a509ce864
+MD5( wvepar.h ) = 840bbd30a6ca1c623203d19d5a9559a3
