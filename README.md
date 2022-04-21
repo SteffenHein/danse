@@ -1,0 +1,2 @@
+# danse
+The DSC program package DANSE [ Discrete Approximation of the Navier-Stokes Equations ] contains EXPERIMENTAL software that was developed for testing the functionality and reliability of the DSC numerical scheme presented in the article »Large eddy approximation of turbulent flow in DSC schemes« [ https://archive.org/details/s_hein_20080827 ] It is expressively pointed out that this is TEST software that is not made for CAD purposes (even if the author used it occasionally for such applications).
