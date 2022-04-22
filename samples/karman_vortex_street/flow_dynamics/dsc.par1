@@ -3,13 +3,13 @@ mod_karman.B
 flow_near_cylinder
 FREQUENCY_DOMAIN
 
-21  Parameters
+22  Parameters
 INTERNATIONAL_UNITS_[if_not_otherwise_specified]
 -------------------------------------------------------------------------------
 s001=depth,_channel____________________________________[m]:  1.150000000000e-03
 s002=width,_channel____________________________________[m]:  4.000000000000e-02
-s003=length,_inflow____________________________________[m]:  4.000000000000e-02
-s004=length,_outflow___________________________________[m]:  2.000000000000e-01
+s003=length,_inflow____________________________________[m]:  6.000000000000e-02
+s004=length,_outflow___________________________________[m]:  3.000000000000e-01
 s005=length,_centre____________________________________[m]:  4.000000000000e-02
 s006=cylinder_diameter_________________________________[m]:  1.000000000000e-02
 s007=angle_alpha______________________________[DEG,_fixed]:  0.000000000000e+00
@@ -22,11 +22,12 @@ s013=heat_capacity,_fluid_______________________[J/(Kg*K)]:  4.182200000000e+03
 s014=dynamic_viscosity,_fluid___________________[Kg/(m*s)]:  1.002000000000e-03
 s015=gravitational_acceleration___________[m/(s^2);_fixed]:  9.810000000000e+00
 s016=dissipation_time__________________________________[s]:  0.000000000000e+00
-s017=characteristic_length_____________________________[m]:  0.000000000000e+00
+s017=characteristic_length__________________[m,_dependent]:  1.000000000000e-02
 s018=start_fluid_dynamic_computations_with_that_delay[sec]:  0.000000000000e+00
 s019=inflow_fluid_velocity___________________________[m/s]:  1.000000000000e+00
-s020=coarsening_period_[LES_filter]__________________[sec]:  2.000000000000e-03
-s021=PROPOSED_heat&fluid_time_step_[s]___[later_requested]:  1.000000000000e-05
+s020=coarsening_period_[LES_filter]__________________[sec]:  1.000000000000e-02
+s021=PROPOSED_heat&fluid_time_step_[s]___[later_requested]:  4.000000000000e-05
+s022=Reynolds_number___________________________[dependent]:  9.962075848303e+03
 
 waveguide_type____________________________________________:  coaxial
 
@@ -47,12 +48,12 @@ flow_near_cylinder
 
 6   |divisions,_identifiers,_operation_marks,_etc.
 ---------------------------------------------------------------
-n001=bc_divisions,_block____1_____________________________:  20
-n002=bc_divisions,_block____2_____________________________: 100
+n001=bc_divisions,_block____1_____________________________:  25
+n002=bc_divisions,_block____2_____________________________: 150
 n003=bc_divisions,_blocks_3,4_____________________________:  15
-n004=bc_divisions,_block____5_____________________________:  11
-n005=ab_divisions,_blocks_3,4_____________________________:   5
-n006=ab_divisions,_blocks_1,2__________________[dependent]:  35
+n004=bc_divisions,_block____5_____________________________:  15
+n005=ab_divisions,_blocks_3,4_____________________________:   7
+n006=ab_divisions,_blocks_1,2__________________[dependent]:  37
 
 1   |vertical_[z]domains
 ---------------------------------------------------------------
@@ -67,9 +68,9 @@ flow_near_cylinder
 3   |operations_[computation_modes]
 ---------------------------------------------------------------
 c001|reference_line/_structure______________________[void]:   1
-c002|no-slip/_free_slip_boundaries___________________[0/1]:   1
+c002|in_channel:_no-slip/_free_slip_boundaries_______[0/1]:   1
 c003|circular/_squared_cylinder______________________[0/1]:   0
 
 DSC model parameter input file dsc.par1 created:
-Sat Apr  2 19:29:28 2022
+Fri Apr 22 20:04:42 2022
 ÿ

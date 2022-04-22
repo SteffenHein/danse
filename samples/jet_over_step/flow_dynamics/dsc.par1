@@ -3,7 +3,7 @@ mod_step.K
 flow_over_step
 FREQUENCY_DOMAIN
 
-25  Parameters
+26  Parameters
 INTERNATIONAL_UNITS_[if_not_otherwise_specified]
 -------------------------------------------------------------------------------
 s001=frequency________________________________________[Hz]:  1.000000000000e+08
@@ -26,11 +26,12 @@ s017=heat_capacity,_fluid_______________________[J/(Kg*K)]:  4.182200000000e+03
 s018=dynamic_viscosity,_fluid___________________[Kg/(m*s)]:  1.002000000000e-03
 s019=gravitational_acceleration___________[m/sec^2;_fixed]:  9.810000000000e+00
 s020=dissipation_time________________________________[sec]:  0.000000000000e+00
-s021=characteristic_length_____________________________[m]:  0.000000000000e+00
+s021=characteristic_length__________________[m,_dependent]:  2.800000000000e-02
 s022=start_fluid_dynamic_computations_with_that_delay[sec]:  0.000000000000e+00
 s023=inflow_fluid_velocity___________________________[m/s]:  3.000000000000e-01
 s024=coarsening_period_[LES_filter]__________________[sec]:  2.000000000000e-02
 s025=PROPOSED_heat&fluid_time_step_[s]___[later_requested]:  5.000000000000e-04
+s026=Reynolds_number___________________________[dependent]:  8.368143712575e+03
 
 waveguide_type____________________________________________:  coaxial
 
@@ -76,5 +77,5 @@ c001|reference_line/_structure______________________[void]:   1
 c002|in_channel:_no-slip/_free_slip_boundaries_______[0/1]:   0
 
 DSC model parameter input file dsc.par1 created:
-Tue Apr 19 15:01:34 2022
+Fri Apr 22 20:01:44 2022
 ÿ

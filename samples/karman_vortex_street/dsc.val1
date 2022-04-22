@@ -25,9 +25,9 @@ nodal_velocities:             3
 
 >>-CELL_and_FACE_LABELS,_parameters,_etc->>
 
-17                0
-717               0
-717               1
+18                0
+943               0
+943               1
 
 DSC model evaluation file dsc.val1 created:
-Sat 02 Apr 2022; 19:29:34
+Fri 22 Apr 2022; 20:04:49

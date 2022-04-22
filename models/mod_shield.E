@@ -8,7 +8,7 @@
 *     release 1.0 ]                                                            *
 *                                                                              *
 *   (C) SHEIN; Munich, February 2007                          Steffen Hein     *
-*   [ Update: March 28, 2022 ]                             <contact@sfenx.de>  *
+*   [ Update: April 22, 2022 ]                             <contact@sfenx.de>  *
 *                                                                              *
 *******************************************************************************/
 # define MOD_DEFLT 5 /* default models */
@@ -556,7 +556,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    cpylne( trf.stx[14], "dynamic_viscosity,_fluid","Kg/(m*s)", ll );
    cpylne( trf.stx[15], "gravitational_acceleration","m/sec^2;_fixed", ll );
    cpylne( trf.stx[16], "dissipation_time","sec", ll );
-   cpylne( trf.stx[17], "characteristic_length","m", ll );
+   cpylne( trf.stx[17], "characteristic_length","m,_dependent", ll );
    cpylne( trf.stx[18], "start_fluid_dynamic_computations_with_that_delay",
       "sec", ll );
    cpylne( trf.stx[19], "inflow_fluid_velocity", "m/s", ll );
@@ -565,14 +565,21 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
 # if DSC_HCRMDE != 0
    cpylne( trf.stx[21], "PROPOSED_heat&fluid_time_step_[s]",
       "later_requested", ll );
+
+# if DSC_FLDMDE != 0
+   cpylne( trf.stx[22], "Reynolds_number","dependent", ll );
 # else
-   cpylne( trf.stx[21], "proposed_heat&fluid_time_step_[s]",
-      "inactive", ll );
+   cpylne( trf.stx[22], "Reynolds_number","inactive", ll );
+# endif
+
+# else
+   cpylne( trf.stx[21], "heat&fluid_time_step_[inactive]", "void", ll );
+   cpylne( trf.stx[22], "Reynolds_number","inactive", ll );
 # endif
 /*............................................................................*/
 /* number of parameters: */
 
-   trf.s[0] = 21;
+   trf.s[0] = 22;
 /*.............................. defaults ....................................*/
 # if MOD_DEFLT == 1
 /* fluid: Water at 20 deg C */
@@ -600,7 +607,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    trf.s[14] = 1.00200e-03; /* dynamic viscosity, fluid [Kg/(m*sec)]*/
    trf.s[15] = 0.00000e+00; /* gravitational acceleration [m/s^2]*/
    trf.s[16] = 0.00000e+00; /* dissipation time [sec] */
-   trf.s[17] = 0.00000e+00; /* characteristic length [m] */
+   trf.s[17] = 0.00000e+00; /* characteristic length [m, dependent] */
    trf.s[18] = 0.00000e+00; /* start fluid operations with that delay */
    trf.s[19] = 3.00000e+01; /* inflow fluid velocity [m/s] */          /* !!! */
    trf.s[20] = 1.00000e-04; /* coarsening time period [s], may work with this */
@@ -632,7 +639,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    trf.s[14] = 1.00200e-03; /* dynamic viscosity, fluid [Kg/(m*sec)]*/
    trf.s[15] = 0.00000e+00; /* gravitational acceleration [m/s^2]*/
    trf.s[16] = 0.00000e+00; /* dissipation time [sec] */
-   trf.s[17] = 0.00000e+00; /* characteristic length [m] */
+   trf.s[17] = 0.00000e+00; /* characteristic length [m, dependent] */
    trf.s[18] = 0.00000e+00; /* start fluid operations with that delay */
    trf.s[19] = 1.00000e+02; /* inflow fluid velocity [m/s] */          /* !!! */
    trf.s[20] = 1.00000e-05; /* coarsening time period [s], may work with this */
@@ -664,7 +671,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    trf.s[14] = 1.00200e-03; /* dynamic viscosity, fluid [Kg/(m*sec)]*/
    trf.s[15] = 0.00000e+00; /* gravitational acceleration [m/s^2]*/
    trf.s[16] = 0.00000e+00; /* dissipation time [sec] */
-   trf.s[17] = 0.00000e+00; /* characteristic length [m] */
+   trf.s[17] = 0.00000e+00; /* characteristic length [m, dependent] */
    trf.s[18] = 0.00000e+00; /* start fluid operations with that delay */
    trf.s[19] = 1.00000e+02; /* inflow fluid velocity [m/s] */          /* !!! */
    trf.s[20] = 5.00000e-05; /* coarsening time period [s], may work with this */
@@ -696,7 +703,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    trf.s[14] = 1.00200e-03; /* dynamic viscosity, fluid [Kg/(m*sec)]*/
    trf.s[15] = 0.00000e+00; /* gravitational acceleration [m/s^2]*/
    trf.s[16] = 0.00000e+00; /* dissipation time [sec] */
-   trf.s[17] = 0.00000e+00; /* characteristic length [m] */
+   trf.s[17] = 0.00000e+00; /* characteristic length [m, dependent] */
    trf.s[18] = 0.00000e+00; /* start fluid operations with that delay */
    trf.s[19] = 4.00000e+01; /* inflow fluid velocity [m/s] */
    trf.s[20] = 1.00000e+00; /* coarsening time period [s], may work with this */
@@ -728,7 +735,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    trf.s[14] = 1.00200e-03; /* dynamic viscosity, fluid [Kg/(m*sec)]*/
    trf.s[15] = 0.00000e+00; /* gravitational acceleration [m/s^2]*/
    trf.s[16] = 0.00000e+00; /* dissipation time [sec] */
-   trf.s[17] = 0.00000e+00; /* characteristic length [m] */
+   trf.s[17] = 0.00000e+00; /* characteristic length [m, dependent] */
    trf.s[18] = 0.00000e+00; /* start fluid operations with that delay */
    trf.s[19] = 6.00000e+01; /* inflow fluid velocity [m/s] */
    trf.s[20] = 1.00000e+00; /* coarsening time period [s], may work with this */
@@ -760,7 +767,7 @@ void deflt_params( void ) /* default geometrical and operating parameters     */
    trf.s[14] = 1.00200e-03; /* dynamic viscosity, fluid [Kg/(m*sec)]*/
    trf.s[15] = 0.00000e+00; /* gravitational acceleration [m/s^2]*/
    trf.s[16] = 0.00000e+00; /* dissipation time [sec] */
-   trf.s[17] = 0.00000e+00; /* characteristic length [m] */
+   trf.s[17] = 0.00000e+00; /* characteristic length [m, dependent] */
    trf.s[18] = 0.00000e+00; /* start fluid operations with that delay */
    trf.s[19] = 3.00000e+01; /* inflow fluid velocity [m/s] */          /* !!! */
    trf.s[20] = 1.00000e-04; /* coarsening time period [s], may work with this */
@@ -800,16 +807,25 @@ short rvise_params( void )
    ( spt->ppt->fr ) = trf.fr;
 /*............................................................................*/
 # if DSC_HCRMDE != 0
-   ( spt->hcrstart ) = ZERO;
+   spt->hcrstart = ZERO;
 
-   if (( spt->hcdt ) < 1.e-277 )
-      ( spt->hcdt ) = trf.s[21]; /* proposed time step [ default ] */
+   if ( spt->hcdt < 1.e-277 )
+      spt->hcdt = trf.s[21]; /* proposed time step [ default ] */
 /*............................................................................*/
 # if DSC_FLDMDE != 0
+/* Characteristic length */
+
+   trfs.[17] = trf.s[5];
+
+/* Reynolds number */
+
+   trf.s[22] = trf.s[9]*trf.s[17]*trf.s[19]/trf.s[14];
+
 /* A delay between the starts of heat conductive and advective                */
 /* [ fluid dynamic ] operations may improve algorithm stability               */
 
-   ( spt->fldstart ) = trf.s[17];
+   ( spt->fldstart ) = trf.s[18];
+
 # endif /* DSC_FLDMDE != 0 */
 /*............................................................................*/
 # endif /* DSC_HCRMDE != 0 */

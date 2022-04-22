@@ -1,12 +1,12 @@
 mod_step.K                 
 flow_over_step             
 ____________________________________________DSC-MODEL_EVALUATION_FILE_dsc.val1
-iteration_cycles:             10000
+iteration_cycles:             30000
 1st_evlt'd_cycle,_Mxwfld:     1
 Lst_evlt'd_cycle,_Mxwfld:     1
 iterations/cycle,_Mxwfld:     1
 1st_evlt'd_cycle,_Ht&Fld:     1
-Lst_evlt'd_cycle,_Ht&Fld:     10000
+Lst_evlt'd_cycle,_Ht&Fld:     30000
 iterations/cycle,_Ht&Fld:     2
 
 Maxwell_field_evaluation  
@@ -30,4 +30,4 @@ nodal_velocities:             3
 6282              1
 
 DSC model evaluation file dsc.val1 created:
-Tue 19 Apr 2022; 15:01:41
+Fri 22 Apr 2022; 19:58:50
